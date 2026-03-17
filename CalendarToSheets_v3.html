@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cal → Export</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a1a; --paper: #f5f0e8; --cream: #ede7d9;
+    --accent: #c84b2f; --green: #2a6b4a; --blue: #2456a4;
+    --muted: #7a7060; --border: #c8bfaa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Mono', monospace; background: var(--paper); color: var(--ink); min-height: 100vh; }
+
+header { background: var(–ink); color: var(–paper); padding: 18px 32px; display: flex; align-items: baseline; gap: 16px; border-bottom: 3px solid var(–accent); }
+header h1 { font-family: ‘Fraunces’, serif; font-weight: 700; font-size: 1.6rem; letter-spacing: -0.5px; }
+header span { font-size: 0.75rem; color: #aaa; font-style: italic; }
+
+.container { max-width: 920px; margin: 0 auto; padding: 32px 24px; }
+
+.steps { display: flex; margin-bottom: 32px; border: 1.5px solid var(–border); border-radius: 4px; overflow: hidden; }
+.step { flex: 1; padding: 10px 14px; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; color: var(–muted); background: var(–cream); border-right: 1.5px solid var(–border); display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+.step:last-child { border-right: none; }
+.step.active { background: var(–ink); color: var(–paper); }
+.step.done { background: var(–green); color: white; }
+.step-num { width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 500; flex-shrink: 0; }
+.step.active .step-num { background: var(–accent); }
+
+.panel { display: none; animation: fadeIn 0.3s ease; }
+.panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+.upload-zone { border: 2px dashed var(–border); border-radius: 8px; padding: 56px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(–cream); position: relative; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(–accent); background: #f9f3e8; }
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-icon { font-size: 3rem; margin-bottom: 12px; }
+.upload-zone h2 { font-family: ‘Fraunces’, serif; font-size: 1.4rem; font-weight: 300; margin-bottom: 8px; }
+.upload-zone p { font-size: 0.75rem; color: var(–muted); }
+
+.preview-wrap { margin-top: 20px; display: none; align-items: flex-start; gap: 20px; }
+.preview-wrap img { max-width: 220px; max-height: 300px; border: 2px solid var(–border); border-radius: 6px; object-fit: contain; }
+.preview-info p { font-size: 0.78rem; color: var(–muted); margin-bottom: 6px; }
+.preview-info strong { color: var(–ink); }
+
+.api-key-row { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.api-key-row label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(–muted); }
+.api-key-row input { padding: 10px 12px; border: 1.5px solid var(–border); border-radius: 4px; font-family: ‘DM Mono’, monospace; font-size: 0.82rem; background: white; }
+.api-key-row input:focus { outline: none; border-color: var(–accent); }
+
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border: none; border-radius: 4px; font-family: ‘DM Mono’, monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; font-weight: 500; text-decoration: none; }
+.btn-accent { background: var(–accent); color: white; }
+.btn-accent:hover { background: #a83d25; }
+.btn-green { background: var(–green); color: white; }
+.btn-green:hover { background: #1e5238; }
+.btn-blue { background: var(–blue); color: white; }
+.btn-blue:hover { background: #1a3f80; }
+.btn-outline { background: transparent; border: 1.5px solid var(–border); color: var(–ink); }
+.btn-outline:hover { border-color: var(–ink); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.status-box { border: 1.5px solid var(–border); border-radius: 6px; padding: 16px 20px; margin: 16px 0; font-size: 0.8rem; display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }
+.status-box.loading { border-color: #e8a020; background: #fdf6e3; }
+.status-box.error { border-color: var(–accent); background: #fdf0ee; }
+.status-box.success { border-color: var(–green); background: #edf6f1; }
+.spinner { width: 18px; height: 18px; border: 2px solid #ddd; border-top-color: var(–accent); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; margin-top: 2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.table-wrap { overflow-x: auto; margin: 16px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+th { background: var(–ink); color: var(–paper); padding: 9px 12px; text-align: left; font-weight: 500; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
+td { padding: 8px 10px; border-bottom: 1px solid var(–border); vertical-align: middle; }
+tr:hover td { background: var(–cream); }
+td input { background: transparent; border: none; font-family: ‘DM Mono’, monospace; font-size: 0.78rem; color: var(–ink); width: 100%; outline: none; padding: 2px 4px; border-radius: 3px; }
+td input:focus { background: white; outline: 1.5px solid var(–accent); }
+.del-btn { background: none; border: none; cursor: pointer; color: var(–muted); font-size: 1rem; padding: 0 4px; }
+.del-btn:hover { color: var(–accent); }
+.row-count { font-size: 0.72rem; color: var(–muted); margin-bottom: 12px; }
+.add-row-btn { font-size: 0.75rem; padding: 6px 14px; margin-top: 8px; }
+
+.export-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+@media (max-width: 640px) { .export-cards { grid-template-columns: 1fr; } }
+.export-card { border: 1.5px solid var(–border); border-radius: 8px; padding: 24px; background: white; display: flex; flex-direction: column; gap: 14px; }
+.export-card h3 { font-family: ‘Fraunces’, serif; font-size: 1.1rem; font-weight: 700; }
+.export-card p { font-size: 0.76rem; color: var(–muted); line-height: 1.6; }
+.card-ics { border-color: #4a7fbd; background: #f4f7fd; }
+.card-sheets { border-color: #4a9060; background: #f2f8f4; }
+.card-badge { display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 20px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+.badge-ics { background: #dde8f8; color: var(–blue); }
+.badge-sheets { background: #d6eedd; color: var(–green); }
+
+.config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+@media (max-width: 600px) { .config-grid { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(–muted); }
+.field input { padding: 9px 11px; border: 1.5px solid var(–border); border-radius: 4px; font-family: ‘DM Mono’, monospace; font-size: 0.8rem; background: white; }
+.field input:focus { outline: none; border-color: var(–accent); }
+
+.hint { font-size: 0.72rem; color: var(–muted); line-height: 1.6; background: var(–cream); border-left: 3px solid var(–accent); padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 10px 0; }
+.hint a { color: var(–accent); }
+.hint code { background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 3px; font-size: 0.85em; }
+
+.collapsible-body { display: none; padding-top: 14px; border-top: 1px solid var(–border); margin-top: 4px; }
+.collapsible-body.open { display: block; }
+.toggle-link { font-size: 0.75rem; color: var(–blue); cursor: pointer; border: none; background: none; font-family: ‘DM Mono’, monospace; padding: 0; text-decoration: underline; }
+
+.year-row { display: flex; align-items: center; gap: 12px; }
+.year-row label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(–muted); white-space: nowrap; }
+.year-row input { width: 80px; padding: 7px 10px; border: 1.5px solid var(–border); border-radius: 4px; font-family: ‘DM Mono’, monospace; font-size: 0.8rem; }
+.year-row span { font-size: 0.7rem; color: var(–muted); }
+
+.actions-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 20px; }
+
+.success-state { text-align: center; padding: 40px 20px; }
+.success-state .big-icon { font-size: 4rem; margin-bottom: 16px; }
+.success-state h2 { font-family: ‘Fraunces’, serif; font-size: 1.8rem; font-weight: 300; margin-bottom: 8px; }
+.success-state p { color: var(–muted); font-size: 0.82rem; }
+.success-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+
+.local-warning { background: #fff8e1; border: 1.5px solid #f0b429; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; font-size: 0.78rem; line-height: 1.7; display: none; }
+.local-warning strong { color: #b45309; }
+</style>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+</head>
+<body>
+
+<header>
+  <h1>Cal → Export</h1>
+  <span>photo → Google Calendar · Apple Calendar · Google Sheets</span>
+</header>
+
+<div class="container">
+
+  <!-- Warning shown if running inside an iframe / Claude.ai -->
+
+  <div class="local-warning" id="localWarning">
+    ⚠️ <strong>This app needs to run as a local file.</strong>
+    Save the downloaded <code>.html</code> file to your computer, then open it directly in Chrome or Firefox (<em>File → Open File</em>).
+    It won't work inside Claude.ai because the browser blocks outbound API calls from iframes.
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="step1"><div class="step-num">1</div> Upload Photo</div>
+    <div class="step" id="step2"><div class="step-num">2</div> Review Events</div>
+    <div class="step" id="step3"><div class="step-num">3</div> Export</div>
+  </div>
+
+  <!-- PANEL 1 -->
+
+  <div class="panel active" id="panel1">
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" accept="image/*" id="fileInput" capture="environment">
+      <div class="upload-icon">📅</div>
+      <h2>Drop your calendar photo here</h2>
+      <p>or click to browse · JPG, PNG, HEIC supported</p>
+    </div>
+
+```
+<div class="preview-wrap" id="previewWrap">
+  <img id="previewImg" src="" alt="preview">
+  <div class="preview-info">
+    <p>File: <strong id="fileName">—</strong></p>
+    <p>Size: <strong id="fileSize">—</strong></p>
+    <p style="margin-top:10px;font-size:0.74rem;color:var(--muted)">Claude AI will scan this image and extract all visible events.</p>
+  </div>
+</div>
+
+<div class="api-key-row">
+  <label>Anthropic API Key</label>
+  <input type="password" id="anthropicKey" placeholder="sk-ant-...">
+  <span style="font-size:0.7rem;color:var(--muted);margin-top:2px">Get yours at <a href="https://console.anthropic.com/keys" target="_blank" style="color:var(--accent)">console.anthropic.com/keys</a> — stays in your browser only.</span>
+</div>
+
+<div id="status1"></div>
+<div class="actions-bar" style="margin-top:16px;">
+  <button class="btn btn-accent" id="extractBtn" disabled onclick="extractEvents()">✦ Extract Events with AI</button>
+</div>
+```
+
+  </div>
+
+  <!-- PANEL 2 -->
+
+  <div class="panel" id="panel2">
+    <div class="row-count" id="rowCount"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Day</th><th>Time</th><th>Event / Description</th><th></th></tr></thead>
+        <tbody id="eventsBody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-outline add-row-btn" onclick="addRow()">+ Add row</button>
+    <div id="status2"></div>
+    <div class="actions-bar">
+      <button class="btn btn-outline" onclick="goToPanel(1)">← Back</button>
+      <button class="btn btn-accent" onclick="goToPanel(3)">Continue to Export →</button>
+    </div>
+  </div>
+
+  <!-- PANEL 3 -->
+
+  <div class="panel" id="panel3">
+    <div class="export-cards">
+
+```
+  <div class="export-card card-ics">
+    <h3>📆 Calendar File</h3>
+    <span class="card-badge badge-ics">.ICS — iCalendar</span>
+    <p>Download and open to import all events into <strong>Google Calendar</strong>, <strong>Apple Calendar</strong>, or <strong>Outlook</strong>.</p>
+    <div class="year-row">
+      <label>Fallback year</label>
+      <input type="number" id="icsYear" value="2026" min="2000" max="2099">
+      <span>used when year isn't in the date</span>
+    </div>
+    <button class="btn btn-blue" onclick="downloadICS()">⬇ Download .ICS File</button>
+    <div id="statusIcs"></div>
+  </div>
+
+  <div class="export-card card-sheets">
+    <h3>📊 Google Sheets</h3>
+    <span class="card-badge badge-sheets">Spreadsheet</span>
+    <p>Write all events directly to a Google Spreadsheet. Requires signing in with Google via OAuth.</p>
+
+    <div class="field">
+      <label>OAuth Client ID</label>
+      <input type="text" id="oauthClientId" placeholder="xxxxxx.apps.googleusercontent.com">
+      <span style="font-size:0.7rem;color:var(--muted);margin-top:2px;">From <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent)">Google Cloud Console → Credentials</a>. Add <code>file://</code> and <code>http://localhost</code> as authorised JS origins.</span>
+    </div>
+
+    <div id="oauthStatus"></div>
+    <button class="btn btn-blue" id="signInBtn" onclick="googleSignIn()">🔑 Sign in with Google</button>
+
+    <div id="sheetsFields" style="display:none;">
+      <div style="font-size:0.75rem;color:var(--green);margin:4px 0 12px;">✓ Signed in as <span id="signedInEmail"></span></div>
+      <div class="config-grid">
+        <div class="field" style="grid-column:1/-1;">
+          <label>Spreadsheet ID</label>
+          <input type="text" id="sheetId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74...">
+          <span style="font-size:0.7rem;color:var(--muted);margin-top:2px;">From URL: <code>spreadsheets/d/<strong>[ID]</strong>/edit</code></span>
+        </div>
+        <div class="field"><label>Tab Name</label><input type="text" id="sheetName" value="Sheet1"></div>
+        <div class="field"><label>Start Cell</label><input type="text" id="startCell" value="A1"></div>
+      </div>
+      <button class="btn btn-green" onclick="exportToSheets()">⬆ Export to Sheets</button>
+    </div>
+    <div id="statusSheets"></div>
+  </div>
+
+</div>
+<div class="actions-bar">
+  <button class="btn btn-outline" onclick="goToPanel(2)">← Back to Review</button>
+</div>
+```
+
+  </div>
+
+  <!-- PANEL 4 -->
+
+  <div class="panel" id="panel4">
+    <div class="success-state">
+      <div class="big-icon">✅</div>
+      <h2>Exported to Sheets</h2>
+      <p id="successMsg"></p>
+      <div class="success-buttons">
+        <a id="sheetLink" href="#" target="_blank" class="btn btn-green">Open Spreadsheet ↗</a>
+        <button class="btn btn-outline" onclick="goToPanel(3)">← Back</button>
+        <button class="btn btn-outline" onclick="startOver()">Start over</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Detect if running inside an iframe (Claude.ai) and warn the user
+if (window.self !== window.top) {
+  document.getElementById('localWarning').style.display = 'block';
+}
+
+let imageBase64 = null, imageType = null;
+
+// File handling
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', function() { zone.classList.remove('drag'); });
+zone.addEventListener('drop', function(e) {
+  e.preventDefault(); zone.classList.remove('drag');
+  var f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) handleFile(f);
+});
+
+// Enable extract button when both image and API key present
+document.getElementById('anthropicKey').addEventListener('input', checkReady);
+
+function handleFile(file) {
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = (file.size / 1024).toFixed(0) + ' KB';
+
+  var supported = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  var needsConvert = !supported.includes(file.type);
+
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var r = ev.target.result;
+    document.getElementById('previewImg').src = r;
+    document.getElementById('previewWrap').style.display = 'flex';
+
+    // Always run through canvas: converts HEIC + resizes to max 1500px
+    var img = new Image();
+    img.onload = function() {
+      var MAX = 1500;
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      var jpeg = canvas.toDataURL('image/jpeg', 0.92);
+      imageBase64 = jpeg.split(',')[1];
+      imageType = 'image/jpeg';
+      var kb = Math.round(jpeg.length * 0.75 / 1024);
+      var resized = (img.naturalWidth !== w || img.naturalHeight !== h);
+      var note = resized ? ' (resized to ' + w + '×' + h + ', ~' + kb + ' KB)' : ' (~' + kb + ' KB)';
+      if (needsConvert) {
+        setStatus('status1', 'success', '✓ Converted to JPEG' + note);
+      } else {
+        clearStatus('status1');
+      }
+      document.getElementById('fileSize').textContent = kb + ' KB (ready to send)';
+      checkReady();
+    };
+    img.onerror = function() {
+      setStatus('status1', 'error', '✗ Could not decode this image. On iPhone, share the photo and choose JPEG format before uploading.');
+    };
+    img.src = r;
+  };
+  reader.readAsDataURL(file);
+}
+
+function checkReady() {
+  var key = document.getElementById('anthropicKey').value.trim();
+  document.getElementById('extractBtn').disabled = !(imageBase64 && key.length > 10);
+}
+
+// AI extraction
+async function extractEvents() {
+  var apiKey = document.getElementById('anthropicKey').value.trim();
+  if (!imageBase64 || !apiKey) return;
+
+  setStatus('status1', 'loading', 'Sending image to Claude AI — this may take 10–20 seconds…');
+  document.getElementById('extractBtn').disabled = true;
+
+  var prompt = 'You are a calendar parser. Examine this calendar image carefully and extract every visible event, appointment, or note.\n\n' +
+    'Return ONLY a JSON array (no markdown, no explanation, no backticks) where each object has:\n' +
+    '- "date": full date e.g. "15 Mar 2026" — include year if visible\n' +
+    '- "day": abbreviated day of week: Mon Tue Wed Thu Fri Sat Sun\n' +
+    '- "time": time if shown e.g. "10:00am" or "16:40", else ""\n' +
+    '- "event": full description of the event or note\n\n' +
+    'Include ALL entries. Prefix crossed-out items with "[crossed out] ".\n' +
+    'Return a valid JSON array ONLY — absolutely nothing before or after the array.';
+
+  var requestBody = {
+    model: 'claude-opus-4-5',
+    max_tokens: 2000,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: imageType, data: imageBase64 } },
+        { type: 'text', text: prompt }
+      ]
+    }]
+  };
+
+  var resp;
+  try {
+    resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify(requestBody)
+    });
+  } catch (networkErr) {
+    var isBlocked = networkErr.message && (
+      networkErr.message.includes('Failed to fetch') ||
+      networkErr.message.includes('NetworkError') ||
+      networkErr.message.includes('CORS') ||
+      networkErr.message.includes('blocked')
+    );
+    setStatus('status1', 'error',
+      isBlocked
+        ? '✗ <strong>Network blocked.</strong> This app must be opened as a local file in your browser — not inside Claude.ai.<br><br>' +
+          'Download the .html file → open it in Chrome or Firefox with <em>File → Open File</em>.'
+        : '✗ Network error: ' + networkErr.message
+    );
+    document.getElementById('extractBtn').disabled = false;
+    return;
+  }
+
+  try {
+    var data = await resp.json();
+
+    if (!resp.ok) {
+      var errMsg = (data.error && data.error.message) ? data.error.message : 'HTTP ' + resp.status;
+      throw new Error(errMsg);
+    }
+
+    var text = data.content.map(function(c) { return c.text || ''; }).join('');
+
+    // Robustly extract JSON array — handle any preamble/trailing text
+    var start = text.indexOf('[');
+    var end = text.lastIndexOf(']');
+    if (start === -1 || end === -1 || end < start) {
+      throw new Error('No JSON array found in response. Raw: ' + text.slice(0, 300));
+    }
+
+    var events = JSON.parse(text.slice(start, end + 1));
+    if (!Array.isArray(events)) throw new Error('Response was not a JSON array.');
+
+    clearStatus('status1');
+    populateTable(events);
+    goToPanel(2);
+
+  } catch (parseErr) {
+    setStatus('status1', 'error', '✗ ' + parseErr.message);
+    document.getElementById('extractBtn').disabled = false;
+  }
+}
+
+// Table
+function populateTable(events) {
+  document.getElementById('eventsBody').innerHTML = '';
+  events.forEach(function(ev) { addRow(ev); });
+}
+
+function addRow(ev) {
+  ev = ev || {};
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input value="' + esc(ev.date || '') + '" placeholder="15 Mar 2026"></td>' +
+    '<td><input value="' + esc(ev.day || '') + '" placeholder="Mon"></td>' +
+    '<td><input value="' + esc(ev.time || '') + '" placeholder="10:00am"></td>' +
+    '<td><input value="' + esc(ev.event || '') + '" placeholder="Event description"></td>' +
+    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove();updateRowCount()">✕</button></td>';
+  document.getElementById('eventsBody').appendChild(tr);
+  updateRowCount();
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function updateRowCount() {
+  var n = document.getElementById('eventsBody').querySelectorAll('tr').length;
+  document.getElementById('rowCount').textContent = n + ' event' + (n !== 1 ? 's' : '') + ' — edit any cell before exporting';
+}
+
+function getRows() {
+  return Array.from(document.getElementById('eventsBody').querySelectorAll('tr')).map(function(tr) {
+    var inp = tr.querySelectorAll('input');
+    return { date: inp[0].value, day: inp[1].value, time: inp[2].value, event: inp[3].value };
+  });
+}
+
+// ICS export
+function downloadICS() {
+  var rows = getRows();
+  var fallbackYear = parseInt(document.getElementById('icsYear').value) || 2026;
+
+  var lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//CalExport//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH'
+  ];
+
+  var count = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!row.event) continue;
+    var parsed = parseEventDate(row.date, row.time, fallbackYear);
+    if (!parsed) continue;
+
+    var uid = 'ev-' + Date.now() + '-' + (count++) + '@calexport';
+    var stamp = dtStamp(new Date());
+    var summary = 'SUMMARY:' + escICS(row.event);
+
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + uid);
+    lines.push('DTSTAMP:' + stamp);
+    if (parsed.allDay) {
+      lines.push('DTSTART;VALUE=DATE:' + parsed.start);
+      lines.push('DTEND;VALUE=DATE:' + parsed.end);
+    } else {
+      lines.push('DTSTART:' + parsed.start);
+      lines.push('DTEND:' + parsed.end);
+    }
+    lines.push(foldLine(summary));
+    lines.push('END:VEVENT');
+  }
+
+  if (count === 0) {
+    setStatus('statusIcs', 'error', '✗ No parseable dates found. Make sure dates include a month name or number (e.g. "15 Mar 2026", "Mar 15", "15/3").');
+    return;
+  }
+
+  lines.push('END:VCALENDAR');
+  var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'calendar-events.ics';
+  a.click();
+  setStatus('statusIcs', 'success', '✓ Downloaded <strong>' + count + ' event' + (count !== 1 ? 's' : '') + '</strong> as calendar-events.ics — open the file to import into Google Calendar or Apple Calendar.');
+}
+
+function parseEventDate(dateStr, timeStr, fallbackYear) {
+  if (!dateStr) return null;
+  var MONTHS = {
+    jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
+    january:0,february:1,march:2,april:3,june:5,july:6,august:7,september:8,october:9,november:10,december:11
+  };
+  var s = dateStr.trim().toLowerCase();
+  var day, month, year, m;
+
+  // "15 mar 2026"
+  m = s.match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  if (m && MONTHS[m[2]] !== undefined) { day = +m[1]; month = MONTHS[m[2]]; year = +m[3]; }
+
+  // "mar 15 2026" or "march 15, 2026"
+  if (day === undefined) {
+    m = s.match(/([a-z]+)\s+(\d{1,2})[,\s]+(\d{4})/);
+    if (m && MONTHS[m[1]] !== undefined) { month = MONTHS[m[1]]; day = +m[2]; year = +m[3]; }
+  }
+
+  // "15 mar" (no year)
+  if (day === undefined) {
+    m = s.match(/(\d{1,2})\s+([a-z]+)/);
+    if (m && MONTHS[m[2]] !== undefined) { day = +m[1]; month = MONTHS[m[2]]; year = fallbackYear; }
+  }
+
+  // "mar 15" (no year)
+  if (day === undefined) {
+    m = s.match(/([a-z]+)\s+(\d{1,2})/);
+    if (m && MONTHS[m[1]] !== undefined) { month = MONTHS[m[1]]; day = +m[2]; year = fallbackYear; }
+  }
+
+  // "15/3/2026" or "15/3"
+  if (day === undefined) {
+    m = s.match(/(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?/);
+    if (m) { day = +m[1]; month = +m[2] - 1; year = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : fallbackYear; }
+  }
+
+  if (day === undefined || month === undefined || isNaN(day) || isNaN(month)) return null;
+  if (!year) year = fallbackYear;
+
+  // Parse time
+  var hour = null, min = 0;
+  if (timeStr) {
+    var t = timeStr.trim().toLowerCase();
+    var tm = t.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/) || t.match(/(\d{1,2})\s*(am|pm)/);
+    if (tm) {
+      hour = +tm[1];
+      min = tm[2] && /\d/.test(tm[2]) ? +tm[2] : 0;
+      var ap = (tm[3] || tm[2] || '').toLowerCase();
+      if (ap === 'pm' && hour < 12) hour += 12;
+      if (ap === 'am' && hour === 12) hour = 0;
+    }
+  }
+
+  var p = function(n) { return String(n).padStart(2, '0'); };
+  var base = '' + year + p(month + 1) + p(day);
+
+  if (hour === null) {
+    var nd = new Date(year, month, day + 1);
+    return { allDay: true, start: base, end: '' + nd.getFullYear() + p(nd.getMonth() + 1) + p(nd.getDate()) };
+  }
+  var endH = Math.min(hour + 1, 23);
+  return { allDay: false, start: base + 'T' + p(hour) + p(min) + '00', end: base + 'T' + p(endH) + p(min) + '00' };
+}
+
+function dtStamp(d) {
+  var p = function(n) { return String(n).padStart(2, '0'); };
+  return '' + d.getUTCFullYear() + p(d.getUTCMonth()+1) + p(d.getUTCDate()) + 'T' + p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds()) + 'Z';
+}
+
+function escICS(s) {
+  return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+
+function foldLine(line) {
+  if (line.length <= 75) return line;
+  var out = []; var i = 0;
+  while (i < line.length) { out.push(line.slice(i, i + (i === 0 ? 75 : 74))); i += (i === 0 ? 75 : 74); }
+  return out.join('\r\n ');
+}
+
+// Google OAuth + Sheets
+var gOAuthToken = null;
+
+function googleSignIn() {
+  var clientId = document.getElementById('oauthClientId').value.trim();
+  if (!clientId) {
+    setStatus('oauthStatus', 'error', '✗ Please enter your OAuth Client ID first.');
+    return;
+  }
+
+  // Use Google Identity Services token flow
+  if (!window.google || !window.google.accounts) {
+    setStatus('oauthStatus', 'error', '✗ Google Identity Services not loaded. Check your internet connection.');
+    return;
+  }
+
+  setStatus('oauthStatus', 'loading', 'Opening Google sign-in…');
+
+  var client = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email',
+    callback: function(tokenResponse) {
+      if (tokenResponse.error) {
+        setStatus('oauthStatus', 'error', '✗ Sign-in failed: ' + tokenResponse.error);
+        return;
+      }
+      gOAuthToken = tokenResponse.access_token;
+      clearStatus('oauthStatus');
+
+      // Fetch user email to confirm
+      fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { 'Authorization': 'Bearer ' + gOAuthToken }
+      }).then(function(r) { return r.json(); }).then(function(info) {
+        document.getElementById('signedInEmail').textContent = info.email || 'your Google account';
+        document.getElementById('sheetsFields').style.display = 'block';
+        document.getElementById('signInBtn').textContent = '🔄 Re-authenticate';
+        document.getElementById('signInBtn').style.background = '#666';
+      });
+    }
+  });
+
+  client.requestAccessToken();
+}
+
+async function exportToSheets() {
+  if (!gOAuthToken) {
+    setStatus('statusSheets', 'error', '✗ Please sign in with Google first.');
+    return;
+  }
+  var sheetId = document.getElementById('sheetId').value.trim();
+  var sheetName = document.getElementById('sheetName').value.trim() || 'Sheet1';
+  var startCell = document.getElementById('startCell').value.trim() || 'A1';
+
+  if (!sheetId) {
+    setStatus('statusSheets', 'error', '✗ Please enter the Spreadsheet ID.');
+    return;
+  }
+
+  var rows = getRows();
+  var values = [['Date','Day','Time','Event']].concat(rows.map(function(r) { return [r.date, r.day, r.time, r.event]; }));
+  setStatus('statusSheets', 'loading', 'Writing to Google Sheets…');
+
+  var range = encodeURIComponent(sheetName + '!' + startCell);
+  try {
+    var resp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range + '?valueInputOption=USER_ENTERED', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + gOAuthToken
+      },
+      body: JSON.stringify({ range: sheetName + '!' + startCell, majorDimension: 'ROWS', values: values })
+    });
+    var result = await resp.json();
+    if (!resp.ok) {
+      // Token may have expired — prompt re-auth
+      if (resp.status === 401) throw new Error('Session expired — please sign in again.');
+      throw new Error((result.error && result.error.message) || 'Sheets API error');
+    }
+    clearStatus('statusSheets');
+    document.getElementById('sheetLink').href = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/edit';
+    document.getElementById('successMsg').textContent = rows.length + ' events written to "' + sheetName + '" starting at ' + startCell + '.';
+    goToPanel(4);
+  } catch (err) {
+    setStatus('statusSheets', 'error', '✗ ' + err.message);
+  }
+}
+
+// Navigation
+function goToPanel(n) {
+  [1,2,3,4].forEach(function(i) {
+    document.getElementById('panel' + i).classList.toggle('active', i === n);
+    var s = document.getElementById('step' + i);
+    if (!s) return;
+    s.classList.toggle('active', i === n);
+    s.classList.toggle('done', i < n);
+  });
+}
+
+function startOver() {
+  imageBase64 = null;
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('extractBtn').disabled = true;
+  document.getElementById('eventsBody').innerHTML = '';
+  ['status1','status2','statusIcs','statusSheets'].forEach(clearStatus);
+  goToPanel(1);
+}
+
+function setStatus(id, type, msg) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '<div class="status-box ' + type + '">' + (type === 'loading' ? '<div class="spinner"></div>' : '') + msg + '</div>';
+}
+
+function clearStatus(id) {
+  var el = document.getElementById(id);
+  if (el) el.innerHTML = '';
+}
+</script>
+
+</body>
+</html>
