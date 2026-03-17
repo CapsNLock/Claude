@@ -48,8 +48,6 @@ cursor: pointer; transition: all 0.15s; width: 100%; position: relative;
 .camera-btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .camera-btn-text strong { font-size: 1rem; }
 .camera-btn-text span { font-size: 0.7rem; opacity: 0.75; font-weight: 400; }
-.btn-take { background: #1a6fa8; color: white; }
-.btn-take:active { background: #145a8a; transform: scale(0.98); }
 .btn-library { background: #0d4f7a; color: white; }
 .btn-library:active { background: #093d60; transform: scale(0.98); }
 
@@ -175,20 +173,13 @@ td input:focus { background: white; outline: 1.5px solid var(–accent); }
 ```
 <!-- Mobile camera buttons -->
 <div class="camera-btns">
-  <button class="camera-btn btn-take">
-    <input type="file" accept="image/*" capture="environment" id="cameraInput">
-    <span class="camera-btn-icon">📷</span>
-    <span class="camera-btn-text">
-      <strong>Take Photo</strong>
-      <span>Open camera directly</span>
-    </span>
-  </button>
+
   <button class="camera-btn btn-library">
     <input type="file" accept="image/*" id="libraryInput">
     <span class="camera-btn-icon">🖼</span>
     <span class="camera-btn-text">
       <strong>Choose Photo</strong>
-      <span>From your library</span>
+      <span>Select from your iPhone library</span>
     </span>
   </button>
 </div>
@@ -317,7 +308,6 @@ var HEADERS    = ['Scanned On', 'Date', 'Time', 'Event'];
 var imageBase64 = null, imageType = null, gOAuthToken = null;
 
 // ── File inputs ────────────────────────────────────────────────────────────────
-document.getElementById('cameraInput').addEventListener('change', function(e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
 document.getElementById('libraryInput').addEventListener('change', function(e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
 document.getElementById('dropInput').addEventListener('change', function(e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
 document.getElementById('anthropicKey').addEventListener('input', checkReady);
@@ -347,7 +337,7 @@ function handleFile(file) {
     // Always pass through canvas: converts HEIC + resizes to max 1500px
     var img = new Image();
     img.onload = function() {
-      var MAX = 1500;
+      var MAX = 2000;
       var w = img.naturalWidth, h = img.naturalHeight;
       if (w > MAX || h > MAX) {
         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
@@ -367,7 +357,7 @@ function handleFile(file) {
         var grey = 0.299 * d[px] + 0.587 * d[px+1] + 0.114 * d[px+2];
 
         // 2. Increase contrast: stretch values away from midpoint (128)
-        var contrast = 1.6; // 1.0 = no change, higher = more contrast
+        var contrast = 1.8; // 1.0 = no change, higher = more contrast
         grey = ((grey - 128) * contrast) + 128;
 
         // 3. Increase brightness slightly to lift shadows
@@ -385,7 +375,7 @@ function handleFile(file) {
       var sd = sharp.data;
       var kernel = [
          0, -1,  0,
-        -1,  5, -1,
+        -1,  7, -1,
          0, -1,  0
       ];
       for (var y = 1; y < h - 1; y++) {
