@@ -355,13 +355,73 @@ function handleFile(file) {
       }
       var canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      var jpeg = canvas.toDataURL('image/jpeg', 0.92);
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // ── Image enhancement for better text recognition ──
+      var imageData = ctx.getImageData(0, 0, w, h);
+      var d = imageData.data;
+
+      for (var px = 0; px < d.length; px += 4) {
+        // 1. Convert to greyscale (luminance-weighted)
+        var grey = 0.299 * d[px] + 0.587 * d[px+1] + 0.114 * d[px+2];
+
+        // 2. Increase contrast: stretch values away from midpoint (128)
+        var contrast = 1.6; // 1.0 = no change, higher = more contrast
+        grey = ((grey - 128) * contrast) + 128;
+
+        // 3. Increase brightness slightly to lift shadows
+        grey = grey + 15;
+
+        // 4. Clamp to 0-255
+        grey = Math.max(0, Math.min(255, grey));
+
+        d[px] = d[px+1] = d[px+2] = grey;
+        // alpha unchanged
+      }
+
+      // 5. Sharpening via unsharp mask (convolution on greyscale)
+      var sharp = ctx.createImageData(w, h);
+      var sd = sharp.data;
+      var kernel = [
+         0, -1,  0,
+        -1,  5, -1,
+         0, -1,  0
+      ];
+      for (var y = 1; y < h - 1; y++) {
+        for (var x = 1; x < w - 1; x++) {
+          var sum = 0;
+          for (var ky = -1; ky <= 1; ky++) {
+            for (var kx = -1; kx <= 1; kx++) {
+              var idx = ((y + ky) * w + (x + kx)) * 4;
+              sum += d[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
+            }
+          }
+          var oidx = (y * w + x) * 4;
+          var val = Math.max(0, Math.min(255, sum));
+          sd[oidx] = sd[oidx+1] = sd[oidx+2] = val;
+          sd[oidx+3] = 255;
+        }
+      }
+      // Fill border pixels (unprocessed by convolution)
+      for (var bx = 0; bx < w; bx++) {
+        var t = bx * 4, bot = ((h-1)*w + bx)*4;
+        sd[t]=sd[t+1]=sd[t+2]=d[t]; sd[t+3]=255;
+        sd[bot]=sd[bot+1]=sd[bot+2]=d[bot]; sd[bot+3]=255;
+      }
+      for (var by = 0; by < h; by++) {
+        var l = by*w*4, r = (by*w + w-1)*4;
+        sd[l]=sd[l+1]=sd[l+2]=d[l]; sd[l+3]=255;
+        sd[r]=sd[r+1]=sd[r+2]=d[r]; sd[r+3]=255;
+      }
+      ctx.putImageData(sharp, 0, 0);
+
+      var jpeg = canvas.toDataURL('image/jpeg', 0.95);
       imageBase64 = jpeg.split(',')[1];
       imageType = 'image/jpeg';
       var kb = Math.round(jpeg.length * 0.75 / 1024);
       var resized = (img.naturalWidth !== w || img.naturalHeight !== h);
-      document.getElementById('fileSize').textContent = kb + ' KB' + (resized ? ' (resized to ' + w + '×' + h + ')' : '') + (needsConvert ? ' · converted to JPEG' : '');
+      document.getElementById('fileSize').textContent = kb + ' KB' + (resized ? ' · resized to ' + w + '×' + h : '') + ' · enhanced for text recognition';
       clearStatus('status1');
       checkReady();
     };
