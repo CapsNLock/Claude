@@ -5,19 +5,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Cal → Export</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
-    --ink: #1c2b3a; --paper: #f0f6fb; --cream: #e3eef7;
+    --ink: #0d2137; --paper: #f0f6fb; --cream: #e3eef7;
     --accent: #4a9fd4; --green: #3aaa7a; --blue: #2d7db3;
-    --muted: #7a96aa; --border: #c2d8e8;
+    --muted: #4a6a80; --border: #c2d8e8;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'DM Mono', monospace; background: #eaf4fb; color: var(--ink); min-height: 100vh; }
 
 header { background: white; color: var(–ink); padding: 16px 24px; display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(–cream); box-shadow: 0 1px 8px rgba(74,159,212,0.08); }
-header h1 { font-family: ‘Fraunces’, serif; font-weight: 700; font-size: 1.4rem; letter-spacing: -0.5px; }
+header h1 { font-family: ‘DM Mono’, monospace; font-weight: 500; font-size: 1.3rem; letter-spacing: -0.5px; }
 header span { font-size: 0.72rem; color: var(–muted); font-style: italic; }
 
 .container { max-width: 920px; margin: 0 auto; padding: 24px 16px; }
@@ -114,7 +114,7 @@ td input:focus { background: white; outline: 1.5px solid var(–accent); }
 .export-cards { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
 @media (min-width: 640px) { .export-cards { flex-direction: row; } }
 .export-card { border: 1.5px solid var(–border); border-radius: 10px; padding: 20px; background: white; display: flex; flex-direction: column; gap: 12px; flex: 1; }
-.export-card h3 { font-family: ‘Fraunces’, serif; font-size: 1.05rem; font-weight: 700; }
+.export-card h3 { font-family: ‘DM Mono’, monospace; font-size: 0.95rem; font-weight: 500; }
 .export-card p { font-size: 0.74rem; color: var(–muted); line-height: 1.6; }
 .card-ics { border-color: #a8d4ec; background: #f0f8fd; }
 .card-sheets { border-color: #8fd4b0; background: #f0faf5; }
@@ -142,7 +142,7 @@ td input:focus { background: white; outline: 1.5px solid var(–accent); }
 /* Success */
 .success-state { text-align: center; padding: 40px 16px; }
 .success-state .big-icon { font-size: 4rem; margin-bottom: 16px; }
-.success-state h2 { font-family: ‘Fraunces’, serif; font-size: 1.6rem; font-weight: 300; margin-bottom: 8px; }
+.success-state h2 { font-family: ‘DM Mono’, monospace; font-size: 1.4rem; font-weight: 500; margin-bottom: 8px; }
 .success-state p { color: var(–muted); font-size: 0.8rem; line-height: 1.6; }
 .success-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
 @media (min-width: 640px) { .success-buttons { flex-direction: row; justify-content: center; } }
@@ -480,7 +480,6 @@ function addRow(ev) {
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input value="' + esc(ev.date || '') + '" placeholder="15 Mar 2026"></td>' +
-    '<td><input value="' + esc(ev.day || '') + '" placeholder="Mon"></td>' +
     '<td><input value="' + esc(ev.time || '') + '" placeholder="10:00am"></td>' +
     '<td><input value="' + esc(ev.event || '') + '" placeholder="Event description"></td>' +
     '<td><button class="del-btn" onclick="this.closest(\'tr\').remove();updateRowCount()">✕</button></td>';
