@@ -10,7 +10,7 @@
 <style>
   :root {
     --ink: #0d2137; --paper: #f0f6fb; --cream: #e3eef7;
-    --accent: #4a9fd4; --green: #3aaa7a; --blue: #2d7db3;
+    --accent: #1a6fa8; --green: #1e8a5e; --blue: #0d4f7a;
     --muted: #4a6a80; --border: #c2d8e8;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,10 +48,10 @@ cursor: pointer; transition: all 0.15s; width: 100%; position: relative;
 .camera-btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .camera-btn-text strong { font-size: 1rem; }
 .camera-btn-text span { font-size: 0.7rem; opacity: 0.75; font-weight: 400; }
-.btn-take { background: var(–accent); color: white; }
-.btn-take:active { background: #a83d25; transform: scale(0.98); }
-.btn-library { background: var(–blue); color: white; }
-.btn-library:active { background: #1a5f8a; transform: scale(0.98); }
+.btn-take { background: #1a6fa8; color: white; }
+.btn-take:active { background: #145a8a; transform: scale(0.98); }
+.btn-library { background: #0d4f7a; color: white; }
+.btn-library:active { background: #093d60; transform: scale(0.98); }
 
 /* Desktop drag zone — hidden on mobile */
 .upload-zone { border: 2px dashed var(–border); border-radius: 8px; padding: 40px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(–cream); position: relative; display: none; }
@@ -80,13 +80,13 @@ cursor: pointer; transition: all 0.15s; width: 100%; position: relative;
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border: none; border-radius: 8px; font-family: ‘DM Mono’, monospace; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; font-weight: 500; text-decoration: none; width: 100%; }
 @media (min-width: 768px) { .btn { width: auto; } }
 .btn-accent { background: var(–accent); color: white; }
-.btn-accent:hover { background: #a83d25; }
+.btn-accent:hover { background: #145a8a; }
 .btn-green { background: var(–green); color: white; }
 .btn-green:hover { background: #1e5238; }
 .btn-blue { background: var(–blue); color: white; }
 .btn-blue:hover { background: #1a3f80; }
-.btn-outline { background: transparent; border: 1.5px solid var(–border); color: var(–ink); }
-.btn-outline:hover { border-color: var(–ink); }
+.btn-outline { background: transparent; border: 2px solid #1a6fa8; color: #0d2137; }
+.btn-outline:hover { border-color: #0d4f7a; background: #e3eef7; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* Status */
