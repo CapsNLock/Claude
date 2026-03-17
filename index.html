@@ -469,7 +469,9 @@ async function extractEvents() {
     // Non-fatal — continue with fallback year
   }
 
-  var prompt = 'You are a calendar parser. Examine this calendar image carefully and extract every visible event, appointment, or note.\n\n' +
+  var prompt = 'You are a calendar parser. First determine if this image is a calendar (wall calendar, diary, planner, schedule, or similar date-based document).\n\n' +
+    'If it is NOT a calendar, respond with exactly: NOT_A_CALENDAR\n\n' +
+    'If it IS a calendar, examine it carefully and extract every visible event, appointment, or note.\n' +
     'Return ONLY a JSON array (no markdown, no explanation, no backticks) where each object has:\n' +
     '- "date": full date e.g. "15 Mar 2026" — include the year if visible on the calendar, otherwise just day and month e.g. "15 Mar"\n' +
     '- "time": time if shown e.g. "10:00am" or "16:40", else ""\n' +
@@ -506,10 +508,14 @@ async function extractEvents() {
     var data = await resp.json();
     if (!resp.ok) throw new Error((data.error && data.error.message) ? data.error.message : 'HTTP ' + resp.status);
     var text = data.content.map(function(c) { return c.text || ''; }).join('');
+    if (text.trim() === 'NOT_A_CALENDAR') {
+      throw new Error('This does not look like a calendar. Please upload a photo of a wall calendar, diary, or planner.');
+    }
     var start = text.indexOf('['), end = text.lastIndexOf(']');
     if (start === -1 || end < start) throw new Error('No JSON array in response. Got: ' + text.slice(0, 200));
     var events = JSON.parse(text.slice(start, end + 1));
     if (!Array.isArray(events)) throw new Error('Response was not a JSON array.');
+    if (events.length === 0) throw new Error('No events found in this image. Please check it is a calendar with entries.');
     clearStatus('status1');
     populateTable(events);
     goToPanel(2);
