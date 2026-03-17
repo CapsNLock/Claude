@@ -530,7 +530,29 @@ async function extractEvents() {
 }
 
 // ── Table ──────────────────────────────────────────────────────────────────────
+function parseSimpleDate(dateStr) {
+  // Returns a sortable number YYYYMMDD or Infinity if unparseable
+  if (!dateStr) return Infinity;
+  var MONTHS = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
+    january:1,february:2,march:3,april:4,june:6,july:7,august:8,september:9,october:10,november:11,december:12 };
+  var s = dateStr.trim().toLowerCase();
+  var day, month, year, m;
+  m = s.match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  if (m && MONTHS[m[2]]) { day=+m[1]; month=MONTHS[m[2]]; year=+m[3]; }
+  if (!day) { m = s.match(/(\d{1,2})\s+([a-z]+)/); if (m && MONTHS[m[2]]) { day=+m[1]; month=MONTHS[m[2]]; year=2026; } }
+  if (!day) { m = s.match(/([a-z]+)\s+(\d{1,2})/); if (m && MONTHS[m[1]]) { month=MONTHS[m[1]]; day=+m[2]; year=2026; } }
+  if (!day) { m = s.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/); if (m) { day=+m[1]; month=+m[2]; year=m[3]?(+m[3]<100?2000+ +m[3]:+m[3]):2026; } }
+  if (!day || !month) return Infinity;
+  return year * 10000 + month * 100 + day;
+}
+
+function normalise(s) {
+  return String(s || '').toLowerCase().replace(/\s+/g,' ').trim();
+}
+
 function populateTable(events) {
+  // Sort by date ascending
+  events.sort(function(a, b) { return parseSimpleDate(a.date) - parseSimpleDate(b.date); });
   document.getElementById('eventsBody').innerHTML = '';
   events.forEach(function(ev) { addRow(ev); });
 }
@@ -678,22 +700,45 @@ async function exportToSheets() {
   var rows = getRows();
   if (rows.length === 0) { setStatus('statusSheets','error','✗ No events to export.'); return; }
 
-  setStatus('statusSheets','loading','Checking spreadsheet…');
+  setStatus('statusSheets','loading','Reading existing sheet data…');
 
   var scannedOn = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
   try {
-    // Step 1: Find the first empty row by reading existing data
+    // Step 1: Read ALL existing data to check for duplicates
     var getResp = await fetch(
-      'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(SHEET_NAME + '!A:A'),
+      'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(SHEET_NAME + '!A:E'),
       { headers: { 'Authorization': 'Bearer ' + gOAuthToken } }
     );
     var getData = await getResp.json();
     if (!getResp.ok) throw new Error((getData.error && getData.error.message) || 'Could not read sheet');
 
-    var existingRows = (getData.values && getData.values.length) ? getData.values.length : 0;
+    var existingValues = getData.values || [];
+    var existingRows = existingValues.length;
 
-    // Step 2: If sheet is empty, write headers first
+    // Build a set of existing date+event keys for fast dedup lookup
+    // Columns: Scanned On (0), Date (1), Time (2), Event (3)
+    var existingKeys = {};
+    for (var i = 1; i < existingValues.length; i++) { // skip header row
+      var row = existingValues[i];
+      var key = normalise(row[1]) + '|' + normalise(row[3]);
+      existingKeys[key] = true;
+    }
+
+    // Step 2: Filter out duplicates
+    var newRows = rows.filter(function(r) {
+      var key = normalise(r.date) + '|' + normalise(r.event);
+      return !existingKeys[key];
+    });
+
+    var dupCount = rows.length - newRows.length;
+
+    if (newRows.length === 0) {
+      setStatus('statusSheets','success','✓ No new events to add — all ' + rows.length + ' event' + (rows.length!==1?'s':'') + ' already exist in the sheet.' + (dupCount > 0 ? ' (' + dupCount + ' duplicate' + (dupCount!==1?'s':'') + ' skipped)' : ''));
+      return;
+    }
+
+    // Step 3: If sheet is empty write headers first
     if (existingRows === 0) {
       var headerResp = await fetch(
         'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(SHEET_NAME + '!A1') + '?valueInputOption=USER_ENTERED',
@@ -708,10 +753,11 @@ async function exportToSheets() {
       existingRows = 1;
     }
 
-    // Step 3: Append new rows after existing data
-    setStatus('statusSheets','loading','Appending ' + rows.length + ' events…');
+    // Step 4: Append only new rows
+    setStatus('statusSheets','loading','Appending ' + newRows.length + ' new event' + (newRows.length!==1?'s':'') + (dupCount > 0 ? ' (' + dupCount + ' duplicate' + (dupCount!==1?'s':'') + ' skipped)' : '') + '…');
+
     var appendRange = SHEET_NAME + '!A' + (existingRows + 1);
-    var values = rows.map(function(r) { return [scannedOn, r.date, r.time, r.event]; });
+    var values = newRows.map(function(r) { return [scannedOn, r.date, r.time, r.event]; });
 
     var appendResp = await fetch(
       'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(appendRange) + '?valueInputOption=USER_ENTERED',
@@ -728,7 +774,9 @@ async function exportToSheets() {
     }
 
     clearStatus('statusSheets');
-    document.getElementById('successMsg').textContent = rows.length + ' events appended on ' + scannedOn + '. Previous data preserved.';
+    var msg = newRows.length + ' new event' + (newRows.length!==1?'s':'') + ' added on ' + scannedOn + '.';
+    if (dupCount > 0) msg += ' ' + dupCount + ' duplicate' + (dupCount!==1?'s':'') + ' skipped.';
+    document.getElementById('successMsg').textContent = msg;
     goToPanel(4);
 
   } catch (err) {
