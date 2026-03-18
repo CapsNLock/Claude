@@ -104,6 +104,8 @@ tr:hover td { background: var(–cream); }
 td input { background: transparent; border: none; font-family: ‘DM Mono’, monospace; font-size: 0.75rem; color: var(–ink); width: 100%; outline: none; padding: 2px 3px; border-radius: 3px; min-width: 60px; }
 td input:focus { background: white; outline: 1.5px solid var(–accent); }
 .del-btn { background: none; border: none; cursor: pointer; color: var(–muted); font-size: 1rem; padding: 0 4px; }
+.cat-select { font-family: ‘DM Mono’, monospace; font-size: 0.72rem; border: 1px solid var(–border); border-radius: 4px; padding: 3px 5px; background: white; color: var(–ink); cursor: pointer; }
+.cat-select:focus { outline: none; border-color: var(–accent); }
 .del-btn:hover { color: var(–accent); }
 .row-count { font-size: 0.7rem; color: var(–muted); margin-bottom: 10px; }
 .add-row-btn { font-size: 0.75rem; padding: 8px 16px; margin-top: 8px; width: auto; }
@@ -219,7 +221,7 @@ td input:focus { background: white; outline: 1.5px solid var(–accent); }
     <div class="row-count" id="rowCount"></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Date</th><th>Time</th><th>Event / Description</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Time</th><th>Event / Description</th><th>Category</th><th></th></tr></thead>
         <tbody id="eventsBody"></tbody>
       </table>
     </div>
@@ -302,7 +304,7 @@ td input:focus { background: white; outline: 1.5px solid var(–accent); }
 // ── Config ─────────────────────────────────────────────────────────────────────
 var SHEET_ID   = '16SRCWUmRatEjWoYNJyPQjysv9kTCtMBmJmQT18lT8Q4';
 var SHEET_NAME = 'Sheet1';
-var HEADERS    = ['Scanned On', 'Date', 'Time', 'Event'];
+var HEADERS    = ['Scanned On', 'Date', 'Time', 'Event', 'Category'];
 
 // ── State ──────────────────────────────────────────────────────────────────────
 var imageBase64 = null, imageType = null, gOAuthToken = null;
@@ -412,19 +414,9 @@ async function extractEvents() {
     // Non-fatal — continue with fallback year
   }
 
-  var prompt = 'You are a calendar parser. First determine if this image is a calendar (wall calendar, diary, planner, schedule, or similar date-based document).\n\n' +
-    'If it is NOT a calendar, respond with exactly: NOT_A_CALENDAR\n\n' +
-    'If it IS a calendar, examine it carefully and extract every visible event, appointment, or note.\n' +
-    'Return ONLY a JSON array (no markdown, no explanation, no backticks) where each object has:\n' +
-    '- "date": full date e.g. "15 Mar 2026" — include the year if visible on the calendar, otherwise just day and month e.g. "15 Mar"\n' +
-    '- "time": time if shown e.g. "10:00am" or "16:40", else ""\n' +
-    '- "event": full description of the event or note\n\n' +
-    'Include ALL entries. Prefix crossed-out items with "[crossed out] ".\n' +
-    'Return a valid JSON array ONLY — absolutely nothing before or after the array.';
-
-  var resp;
-  try {
-    resp = await fetch('https://api.anthropic.com/v1/messages', {
+  // Helper: call Claude with an image prompt
+  async function callClaude(promptText, maxTokens) {
+    var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -434,34 +426,101 @@ async function extractEvents() {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 2000,
+        max_tokens: maxTokens || 2000,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: imageType, data: imageBase64 } },
-          { type: 'text', text: prompt }
+          { type: 'text', text: promptText }
         ]}]
       })
     });
-  } catch (networkErr) {
-    setStatus('status1', 'error', '✗ Network error: ' + networkErr.message + '<br>Make sure you are accessing this page over https://');
-    document.getElementById('extractBtn').disabled = false;
-    return;
+    var d = await r.json();
+    if (!r.ok) throw new Error((d.error && d.error.message) ? d.error.message : 'HTTP ' + r.status);
+    return d.content.map(function(c) { return c.text || ''; }).join('');
   }
 
-  try {
-    var data = await resp.json();
-    if (!resp.ok) throw new Error((data.error && data.error.message) ? data.error.message : 'HTTP ' + resp.status);
-    var text = data.content.map(function(c) { return c.text || ''; }).join('');
-    if (text.trim() === 'NOT_A_CALENDAR') {
-      throw new Error('This does not look like a calendar. Please upload a photo of a wall calendar, diary, or planner.');
-    }
+  function parseEvents(text) {
+    if (text.trim() === 'NOT_A_CALENDAR') throw new Error('This does not look like a calendar. Please upload a photo of a wall calendar, diary, or planner.');
     var start = text.indexOf('['), end = text.lastIndexOf(']');
-    if (start === -1 || end < start) throw new Error('No JSON array in response. Got: ' + text.slice(0, 200));
-    var events = JSON.parse(text.slice(start, end + 1));
-    if (!Array.isArray(events)) throw new Error('Response was not a JSON array.');
-    if (events.length === 0) throw new Error('No events found in this image. Please check it is a calendar with entries.');
+    if (start === -1 || end < start) throw new Error('No JSON array found. Got: ' + text.slice(0, 200));
+    var arr = JSON.parse(text.slice(start, end + 1));
+    if (!Array.isArray(arr)) throw new Error('Response was not a JSON array.');
+    return arr;
+  }
+
+  function mergeEvents(pass1, pass2) {
+    // Combine both passes, deduplicate by normalised date+event key, prefer pass1 entry
+    var seen = {};
+    var merged = [];
+    pass1.concat(pass2).forEach(function(ev) {
+      var key = normalise(ev.date) + '|' + normalise(ev.event);
+      if (!seen[key] && ev.event) { seen[key] = true; merged.push(ev); }
+    });
+    return merged;
+  }
+
+  var calPrompt1 = [
+    'You are reading a handwritten calendar. The entries are handwritten so read carefully, paying close attention to individual letter shapes.',
+    '',
+    'First: if this is NOT a calendar, respond with exactly: NOT_A_CALENDAR',
+    '',
+    'If it IS a calendar, extract every visible handwritten event, appointment, or note.',
+    'Return ONLY a JSON array where each object has:',
+    '- "date": full date e.g. "15 Mar 2026" - include the year if visible, otherwise day and month e.g. "15 Mar"',
+    '- "time": time if shown e.g. "10:00am" or "16:40", else ""',
+    '- "event": the full handwritten text exactly as written',
+    '- "category": one of exactly: Social, Medical, School, Work, Other',
+    '',
+    'Category guidance: Medical = doctors, dentist, hospital, health, medication, therapy. School = lessons, exams, parents evening, school trips. Work = meetings, deadlines, conferences, business. Social = friends, family, parties, dinner, cinema, holidays. Other = anything that does not fit.',
+    '',
+    'Include ALL entries. Prefix crossed-out items with [crossed out].',
+    'Return valid JSON array ONLY.'
+  ].join('\n');
+
+  var calPrompt2 = [
+    'You are carefully re-reading a handwritten calendar for a second verification pass. Focus especially on:',
+    '- Any entries that might have been missed',
+    '- Correct spelling of handwritten words',
+    '- Times and dates that are hard to read',
+    '',
+    'First: if this is NOT a calendar, respond with exactly: NOT_A_CALENDAR',
+    '',
+    'Extract every visible event and return ONLY a JSON array where each object has:',
+    '- "date": full date e.g. "15 Mar 2026" or day and month e.g. "15 Mar"',
+    '- "time": time if shown, else ""',
+    '- "event": the full handwritten text exactly as written',
+    '- "category": one of exactly: Social, Medical, School, Work, Other',
+    '',
+    'Category guidance: Medical = doctors, dentist, hospital, health, medication, therapy. School = lessons, exams, parents evening, school trips. Work = meetings, deadlines, conferences, business. Social = friends, family, parties, dinner, cinema, holidays. Other = anything that does not fit.',
+    '',
+    'Include ALL entries including any you noticed were missed on a first read.',
+    'Return valid JSON array ONLY.'
+  ].join('\n');
+
+  try {
+    // Pass 1
+    setStatus('status1', 'loading', 'Pass 1 — reading handwritten events…');
+    var text1 = await callClaude(calPrompt1, 2000);
+    var events1 = parseEvents(text1);
+
+    // Pass 2
+    setStatus('status1', 'loading', 'Pass 2 — verifying and catching missed entries (' + events1.length + ' found so far)…');
+    var text2 = await callClaude(calPrompt2, 2000);
+    var events2 = parseEvents(text2);
+
+    // Merge
+    var merged = mergeEvents(events1, events2);
+    var newFromPass2 = merged.length - events1.filter(function(e){ return !!e.event; }).length;
+
     clearStatus('status1');
-    populateTable(events);
+    var msg = merged.length + ' events extracted';
+    if (newFromPass2 > 0) msg += ' (' + newFromPass2 + ' additional found in pass 2)';
+    setStatus('status1', 'success', '✓ ' + msg + ' — review below before exporting.');
+    setTimeout(function() { clearStatus('status1'); }, 4000);
+
+    if (merged.length === 0) throw new Error('No events found in this image. Please check it is a calendar with entries.');
+    populateTable(merged);
     goToPanel(2);
+
   } catch (err) {
     setStatus('status1', 'error', '✗ ' + err.message);
     document.getElementById('extractBtn').disabled = false;
@@ -498,11 +557,17 @@ function populateTable(events) {
 
 function addRow(ev) {
   ev = ev || {};
+  var cats = ['Social','Medical','School','Work','Other'];
+  var catOptions = cats.map(function(c) {
+    var sel = c === (ev.category || 'Other') ? ' selected' : '';
+    return '<option value="' + c + '"' + sel + '>' + c + '</option>';
+  }).join('');
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input value="' + esc(ev.date || '') + '" placeholder="15 Mar 2026"></td>' +
     '<td><input value="' + esc(ev.time || '') + '" placeholder="10:00am"></td>' +
     '<td><input value="' + esc(ev.event || '') + '" placeholder="Event description"></td>' +
+    '<td><select class="cat-select">' + catOptions + '</select></td>' +
     '<td><button class="del-btn" onclick="this.closest(\'tr\').remove();updateRowCount()">✕</button></td>';
   document.getElementById('eventsBody').appendChild(tr);
   updateRowCount();
@@ -518,7 +583,8 @@ function updateRowCount() {
 function getRows() {
   return Array.from(document.getElementById('eventsBody').querySelectorAll('tr')).map(function(tr) {
     var inp = tr.querySelectorAll('input');
-    return { date: inp[0].value, time: inp[1].value, event: inp[2].value };
+    var sel = tr.querySelector('select');
+    return { date: inp[0].value, time: inp[1].value, event: inp[2].value, category: sel ? sel.value : 'Other' };
   });
 }
 
@@ -696,7 +762,7 @@ async function exportToSheets() {
     setStatus('statusSheets','loading','Appending ' + newRows.length + ' new event' + (newRows.length!==1?'s':'') + (dupCount > 0 ? ' (' + dupCount + ' duplicate' + (dupCount!==1?'s':'') + ' skipped)' : '') + '…');
 
     var appendRange = SHEET_NAME + '!A' + (existingRows + 1);
-    var values = newRows.map(function(r) { return [scannedOn, r.date, r.time, r.event]; });
+    var values = newRows.map(function(r) { return [scannedOn, r.date, r.time, r.event, r.category]; });
 
     var appendResp = await fetch(
       'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(appendRange) + '?valueInputOption=USER_ENTERED',
