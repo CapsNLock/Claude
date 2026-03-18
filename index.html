@@ -259,12 +259,6 @@ td input:focus { background: white; outline: 1.5px solid var(–accent); }
     <span class="card-badge badge-sheets">Append mode</span>
     <p>Appends new events below existing data each time — builds up a full history. Each row includes a "Scanned on" timestamp.</p>
 
-    <div class="field">
-      <label>OAuth Client ID</label>
-      <input type="text" id="oauthClientId" placeholder="xxxxxx.apps.googleusercontent.com" autocomplete="off">
-      <span style="font-size:0.68rem;color:var(--muted);margin-top:2px;">From <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent)">Google Cloud Console → Credentials</a>.</span>
-    </div>
-
     <div id="oauthStatus"></div>
     <button class="btn btn-blue" id="signInBtn" onclick="googleSignIn()">🔑 Sign in with Google</button>
 
@@ -713,9 +707,10 @@ function foldLine(line) {
 }
 
 // ── Google OAuth ───────────────────────────────────────────────────────────────
+var GOOGLE_CLIENT_ID = '805439535688-q1v4rq4oost2dncru7gnj86124se19d3.apps.googleusercontent.com';
+
 function googleSignIn() {
-  var clientId = document.getElementById('oauthClientId').value.trim();
-  if (!clientId) { setStatus('oauthStatus','error','✗ Please enter your OAuth Client ID first.'); return; }
+  var clientId = GOOGLE_CLIENT_ID;
   if (!window.google || !window.google.accounts) { setStatus('oauthStatus','error','✗ Google Identity Services not loaded. Check your connection.'); return; }
 
   setStatus('oauthStatus','loading','Opening Google sign-in…');
