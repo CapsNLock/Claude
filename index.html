@@ -447,13 +447,38 @@ async function extractEvents() {
     return arr;
   }
 
+  // Fuzzy similarity score between two strings (0 = nothing in common, 1 = identical)
+  // Uses character bigrams — good for catching single char differences and extra spaces
+  function similarity(a, b) {
+    a = normalise(a); b = normalise(b);
+    if (a === b) return 1;
+    if (a.length < 2 || b.length < 2) return 0;
+    var getBigrams = function(s) {
+      var bg = {}; for (var i = 0; i < s.length - 1; i++) { var bi = s[i]+s[i+1]; bg[bi] = (bg[bi]||0)+1; } return bg;
+    };
+    var ab = getBigrams(a), bb = getBigrams(b);
+    var intersection = 0;
+    Object.keys(ab).forEach(function(k) { if (bb[k]) intersection += Math.min(ab[k], bb[k]); });
+    var total = (a.length - 1) + (b.length - 1);
+    return (2 * intersection) / total;
+  }
+
   function mergeEvents(pass1, pass2) {
-    // Combine both passes, deduplicate by normalised date+event key, prefer pass1 entry
-    var seen = {};
-    var merged = [];
-    pass1.concat(pass2).forEach(function(ev) {
-      var key = normalise(ev.date) + '|' + normalise(ev.event);
-      if (!seen[key] && ev.event) { seen[key] = true; merged.push(ev); }
+    // Start with all pass1 events
+    var merged = pass1.filter(function(ev) { return !!ev.event; });
+
+    // Only add pass2 events that are not similar to any existing entry on the same date
+    pass2.forEach(function(ev2) {
+      if (!ev2.event) return;
+      var dateKey = normalise(ev2.date);
+      // Check against all merged events on the same date
+      var isDuplicate = merged.some(function(ev1) {
+        var sameDate = normalise(ev1.date) === dateKey;
+        if (!sameDate) return false;
+        var sim = similarity(ev1.event, ev2.event);
+        return sim >= 0.75; // 75% similar = treat as same event, keep pass1 version
+      });
+      if (!isDuplicate) merged.push(ev2);
     });
     return merged;
   }
