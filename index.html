@@ -783,7 +783,7 @@ After searching, respond ONLY with valid JSON, no preamble, no markdown fences:
   }
 
   if (!finalText) throw new Error('No response received from analysis.');
-  const clean = finalText.replace(/```json\n?|\n?```/g, '').trim();
+  const clean = finalText.replace(/`{3}json\n?|\n?`{3}/g, '').trim();
 
   // Extract the JSON object from the response
   const jsonMatch = clean.match(/\{[\s\S]*\}/);
