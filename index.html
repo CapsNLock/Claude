@@ -3,854 +3,1036 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Cal → Export</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo &mdash; Sales Reference Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<!-- Google Identity Services (replaces deprecated gapi.auth2) -->
+<script src="https://accounts.google.com/gsi/client"></script>
+<!-- Google API client for Sheets -->
+<script src="https://apis.google.com/js/api.js"></script>
 <style>
   :root {
-    --ink: #0d2137; --paper: #f0f6fb; --cream: #e3eef7;
-    --accent: #1a6fa8; --green: #1e8a5e; --blue: #0d4f7a;
-    --muted: #4a6a80; --border: #c2d8e8;
+    --ink: #0d0d0d;
+    --paper: #f5f0e8;
+    --cream: #ede7d5;
+    --rust: #c4461e;
+    --gold: #b89a4e;
+    --sage: #4a6741;
+    --slate: #3d4a5c;
+    --muted: #7a7060;
+    --border: #cfc8b4;
+    --card-bg: #faf7f0;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Mono', monospace; background: #eaf4fb; color: var(--ink); min-height: 100vh; }
 
-header { background: white; color: var(–ink); padding: 16px 24px; display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(–cream); box-shadow: 0 1px 8px rgba(74,159,212,0.08); }
-header h1 { font-family: ‘DM Mono’, monospace; font-weight: 500; font-size: 1.3rem; letter-spacing: -0.5px; }
-header span { font-size: 0.72rem; color: var(–muted); font-style: italic; }
+- { margin: 0; padding: 0; box-sizing: border-box; }
 
-.container { max-width: 920px; margin: 0 auto; padding: 24px 16px; }
+body {
+background: var(–paper);
+color: var(–ink);
+font-family: ‘DM Mono’, monospace;
+font-size: 13px;
+min-height: 100vh;
+overflow-x: hidden;
+}
+
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 512 512’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.75’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23n)’ opacity=‘0.04’/%3E%3C/svg%3E”);
+pointer-events: none;
+z-index: 0;
+opacity: 0.6;
+}
+
+header {
+position: relative;
+z-index: 10;
+border-bottom: 2px solid var(–ink);
+padding: 0 40px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+height: 64px;
+background: var(–paper);
+}
+
+.logo { display: flex; align-items: baseline; gap: 10px; background: none; border: none; cursor: pointer; padding: 0; }
+.logo:hover .logo-word { color: var(–rust); }
+.logo-word { font-family: ‘Syne’, sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.5px; transition: color 0.15s; }
+.logo-sub { font-size: 10px; color: var(–muted); letter-spacing: 0.15em; text-transform: uppercase; }
+
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 40px 40px 80px; }
 
 /* Steps */
-.steps { display: flex; margin-bottom: 24px; border: 1.5px solid var(–border); border-radius: 4px; overflow: hidden; }
-.step { flex: 1; padding: 9px 10px; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(–muted); background: var(–cream); border-right: 1.5px solid var(–border); display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-.step:last-child { border-right: none; }
-.step.active { background: var(–blue); color: white; }
-.step.done { background: var(–green); color: white; }
-.step-num { width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 500; flex-shrink: 0; }
-.step.active .step-num { background: var(–accent); }
+.steps-indicator { display: flex; margin-bottom: 32px; border: 1px solid var(–border); overflow: hidden; }
+.step-item { flex: 1; padding: 12px 16px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); border-right: 1px solid var(–border); display: flex; align-items: center; gap: 8px; background: var(–paper); }
+.step-item:last-child { border-right: none; }
+.step-item.active { background: var(–ink); color: var(–paper); }
+.step-item.done { background: var(–cream); color: var(–sage); }
+.step-num { width: 18px; height: 18px; border: 1px solid currentColor; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
+.step-item.done .step-num::after { content: ‘✓’; }
 
-.panel { display: none; animation: fadeIn 0.3s ease; }
-.panel.active { display: block; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+/* Panels */
+.setup-panel { border: 2px solid var(–ink); background: var(–card-bg); margin-bottom: 32px; position: relative; overflow: hidden; }
+.setup-panel::before { content: ‘’; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(–rust), var(–gold)); }
+.panel-header { padding: 20px 28px; border-bottom: 1px solid var(–border); display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-family: ‘Syne’, sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; }
+.panel-step { font-size: 10px; color: var(–muted); letter-spacing: 0.1em; text-transform: uppercase; }
+.panel-body { padding: 28px; }
 
-/* Camera buttons — mobile first */
-.camera-btns { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
-.camera-btn {
-display: flex; align-items: center; justify-content: center; gap: 12px;
-padding: 20px 24px; border: none; border-radius: 12px;
-font-family: ‘DM Mono’, monospace; font-size: 1rem; font-weight: 500;
-cursor: pointer; transition: all 0.15s; width: 100%; position: relative;
-}
-.camera-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; font-size: 0; }
-.camera-btn-icon { font-size: 1.8rem; flex-shrink: 0; }
-.camera-btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.camera-btn-text strong { font-size: 1rem; }
-.camera-btn-text span { font-size: 0.7rem; opacity: 0.75; font-weight: 400; }
-.btn-library { background: #0d4f7a; color: white; }
-.btn-library:active { background: #093d60; transform: scale(0.98); }
-
-/* Desktop drag zone — hidden on mobile */
-.upload-zone { border: 2px dashed var(–border); border-radius: 8px; padding: 40px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(–cream); position: relative; display: none; }
-@media (min-width: 768px) {
-.camera-btns { flex-direction: row; }
-.camera-btn { flex: 1; padding: 24px; }
-.upload-zone { display: block; margin-top: 16px; }
-.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-}
-.upload-zone:hover, .upload-zone.drag { border-color: var(–accent); background: #e0f0fa; }
-.upload-zone p { font-size: 0.78rem; color: var(–muted); }
-
-.preview-wrap { margin-top: 16px; display: none; align-items: flex-start; gap: 16px; background: white; border-radius: 8px; padding: 14px; border: 1px solid var(–border); }
-.preview-wrap img { max-width: 120px; max-height: 160px; border: 2px solid var(–border); border-radius: 6px; object-fit: contain; flex-shrink: 0; }
-.preview-info p { font-size: 0.75rem; color: var(–muted); margin-bottom: 5px; line-height: 1.5; }
-.preview-info strong { color: var(–ink); }
-
-.api-key-row { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
-.api-key-row label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(–muted); }
-.api-key-row input { padding: 12px 14px; border: 1.5px solid var(–border); border-radius: 8px; font-family: ‘DM Mono’, monospace; font-size: 0.9rem; background: white; -webkit-appearance: none; }
-.api-key-row input:focus { outline: none; border-color: var(–accent); }
-.api-key-row .hint-text { font-size: 0.7rem; color: var(–muted); line-height: 1.5; }
-.api-key-row .hint-text a { color: var(–accent); }
+/* Inputs */
+label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(–muted); }
+input { background: var(–paper); border: 1px solid var(–border); color: var(–ink); font-family: ‘DM Mono’, monospace; font-size: 12px; padding: 10px 14px; outline: none; transition: border-color 0.2s; width: 100%; }
+input:focus { border-color: var(–rust); }
 
 /* Buttons */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border: none; border-radius: 8px; font-family: ‘DM Mono’, monospace; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; font-weight: 500; text-decoration: none; width: 100%; }
-@media (min-width: 768px) { .btn { width: auto; } }
-.btn-accent { background: var(–accent); color: white; }
-.btn-accent:hover { background: #145a8a; }
-.btn-green { background: var(–green); color: white; }
-.btn-green:hover { background: #1e5238; }
-.btn-blue { background: var(–blue); color: white; }
-.btn-blue:hover { background: #1a3f80; }
-.btn-outline { background: transparent; border: 2px solid #1a6fa8; color: #0d2137; }
-.btn-outline:hover { border-color: #0d4f7a; background: #e3eef7; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; font-family: ‘DM Mono’, monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border: none; transition: all 0.15s; }
+.btn-primary { background: var(–ink); color: var(–paper); }
+.btn-primary:hover { background: var(–rust); }
+.btn-outline { background: transparent; border: 1px solid var(–ink); color: var(–ink); }
+.btn-outline:hover { background: var(–ink); color: var(–paper); }
+.btn-ghost { background: transparent; border: 1px solid var(–border); color: var(–muted); }
+.btn-ghost:hover { border-color: var(–ink); color: var(–ink); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Status */
-.status-box { border: 1.5px solid var(–border); border-radius: 8px; padding: 14px 16px; margin: 12px 0; font-size: 0.78rem; display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }
-.status-box.loading { border-color: #e8a020; background: #fdf6e3; }
-.status-box.error { border-color: var(–accent); background: #fdf0ee; }
-.status-box.success { border-color: var(–green); background: #edf6f1; }
-.spinner { width: 18px; height: 18px; border: 2px solid #ddd; border-top-color: var(–blue); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; margin-top: 2px; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* OAuth */
+.oauth-block { display: flex; align-items: center; gap: 20px; padding: 20px; border: 1px solid var(–border); background: var(–paper); margin-bottom: 20px; }
+.oauth-icon { width: 40px; height: 40px; flex-shrink: 0; }
+.oauth-info h4 { font-family: ‘Syne’, sans-serif; font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+.oauth-info p { font-size: 11px; color: var(–muted); line-height: 1.5; }
 
 /* Table */
-.table-wrap { overflow-x: auto; margin: 12px 0; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; min-width: 480px; }
-th { background: var(–blue); color: white; padding: 9px 10px; text-align: left; font-weight: 500; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; }
-td { padding: 7px 8px; border-bottom: 1px solid var(–border); vertical-align: middle; }
+.sheet-preview { display: none; margin-top: 16px; }
+.sheet-preview.visible { display: block; }
+.sheet-table-wrap { overflow-x: auto; border: 1px solid var(–border); }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { background: var(–ink); color: var(–paper); padding: 8px 14px; text-align: left; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+td { padding: 9px 14px; border-bottom: 1px solid var(–cream); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 tr:hover td { background: var(–cream); }
-td input { background: transparent; border: none; font-family: ‘DM Mono’, monospace; font-size: 0.75rem; color: var(–ink); width: 100%; outline: none; padding: 2px 3px; border-radius: 3px; min-width: 60px; }
-td input:focus { background: white; outline: 1.5px solid var(–accent); }
-.del-btn { background: none; border: none; cursor: pointer; color: var(–muted); font-size: 1rem; padding: 0 4px; }
-.cat-select { font-family: ‘DM Mono’, monospace; font-size: 0.72rem; border: 1px solid var(–border); border-radius: 4px; padding: 3px 5px; background: white; color: var(–ink); cursor: pointer; }
-.cat-select:focus { outline: none; border-color: var(–accent); }
-.del-btn:hover { color: var(–accent); }
-.row-count { font-size: 0.7rem; color: var(–muted); margin-bottom: 10px; }
-.add-row-btn { font-size: 0.75rem; padding: 8px 16px; margin-top: 8px; width: auto; }
 
-/* Export cards */
-.export-cards { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
-@media (min-width: 640px) { .export-cards { flex-direction: row; } }
-.export-card { border: 1.5px solid var(–border); border-radius: 10px; padding: 20px; background: white; display: flex; flex-direction: column; gap: 12px; flex: 1; }
-.export-card h3 { font-family: ‘DM Mono’, monospace; font-size: 0.95rem; font-weight: 500; }
-.export-card p { font-size: 0.74rem; color: var(–muted); line-height: 1.6; }
-.card-ics { border-color: #a8d4ec; background: #f0f8fd; }
-.card-sheets { border-color: #8fd4b0; background: #f0faf5; }
-.card-badge { display: inline-block; font-size: 0.62rem; padding: 2px 8px; border-radius: 20px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
-.badge-ics { background: #dde8f8; color: var(–blue); }
-.badge-sheets { background: #d6eedd; color: var(–green); }
+/* URL row */
+.url-input-row { display: flex; }
+.url-input-row input { flex: 1; border-right: none; }
+.url-input-row .btn { flex-shrink: 0; border: 1px solid var(–border); background: var(–ink); color: var(–paper); padding: 10px 24px; }
+.url-input-row .btn:hover { background: var(–rust); }
 
-.field { display: flex; flex-direction: column; gap: 5px; }
-.field label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(–muted); }
-.field input { padding: 10px 12px; border: 1.5px solid var(–border); border-radius: 6px; font-family: ‘DM Mono’, monospace; font-size: 0.8rem; background: white; -webkit-appearance: none; }
-.field input:focus { outline: none; border-color: var(–accent); }
+/* Prospect preview */
+.prospect-preview { display: none; margin-top: 20px; padding: 20px; border: 1px solid var(–border); background: var(–paper); }
+.prospect-preview.visible { display: block; }
+.prospect-preview h4 { font-family: ‘Instrument Serif’, serif; font-style: italic; font-size: 20px; margin-bottom: 4px; }
+.prospect-meta { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+.meta-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(–border); font-size: 10px; color: var(–muted); letter-spacing: 0.05em; }
+.meta-chip.industry { border-color: var(–gold); color: var(–gold); }
 
-.hint { font-size: 0.7rem; color: var(–muted); line-height: 1.6; background: var(–cream); border-left: 3px solid var(–accent); padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 8px 0; }
-.hint a { color: var(–accent); }
-.hint code { background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 3px; font-size: 0.85em; }
+/* Loading */
+.loading-overlay { display: none; padding: 60px 28px; text-align: center; flex-direction: column; align-items: center; gap: 16px; }
+.loading-overlay.active { display: flex; }
+.loader-ring { width: 40px; height: 40px; border: 2px solid var(–border); border-top-color: var(–rust); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 11px; color: var(–muted); letter-spacing: 0.1em; text-transform: uppercase; }
+.loading-steps { font-size: 11px; color: var(–muted); text-align: left; max-width: 320px; }
+.loading-step { padding: 4px 0; opacity: 0.4; transition: opacity 0.3s; display: flex; align-items: center; gap: 8px; }
+.loading-step.active { opacity: 1; color: var(–rust); }
+.loading-step.done { opacity: 0.7; color: var(–sage); }
+.loading-step.done::before { content: ’✓ ’; }
+.loading-step.active::before { content: ’→ ’; }
 
-.year-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.year-row label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(–muted); white-space: nowrap; }
-.year-row input { width: 80px; padding: 8px 10px; border: 1.5px solid var(–border); border-radius: 6px; font-family: ‘DM Mono’, monospace; font-size: 0.8rem; -webkit-appearance: none; }
-.year-row span { font-size: 0.68rem; color: var(–muted); }
+/* Results */
+.results-section { display: none; }
+.results-section.visible { display: block; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(–ink); }
+.results-title { font-family: ‘Syne’, sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -1px; }
+.results-count { font-size: 11px; color: var(–muted); letter-spacing: 0.1em; text-transform: uppercase; }
+.matches-grid { display: grid; grid-template-columns: 1fr; gap: 2px; }
 
-.actions-bar { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-@media (min-width: 640px) { .actions-bar { flex-direction: row; align-items: center; flex-wrap: wrap; } }
+/* Match cards */
+.match-card { background: var(–card-bg); border: 1px solid var(–border); padding: 24px 28px; position: relative; transition: all 0.2s; overflow: hidden; animation: slideIn 0.4s ease forwards; opacity: 0; transform: translateY(12px); }
+@keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
+.match-card:hover { border-color: var(–rust); background: var(–paper); }
+.match-card::before { content: ‘’; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(–border); transition: background 0.2s; }
+.match-card:hover::before { background: var(–rust); }
+.match-rank { position: absolute; top: 24px; right: 28px; font-family: ‘Instrument Serif’, serif; font-style: italic; font-size: 48px; color: var(–cream); line-height: 1; user-select: none; transition: color 0.2s; }
+.match-card:hover .match-rank { color: var(–border); }
+.match-top { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.match-score-badge { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; height: 52px; border: 2px solid var(–ink); flex-shrink: 0; background: var(–paper); }
+.match-score-badge .score-num { font-family: ‘Syne’, sans-serif; font-weight: 800; font-size: 18px; line-height: 1; }
+.match-score-badge .score-pct { font-size: 9px; color: var(–muted); letter-spacing: 0.05em; }
+.match-score-badge.high { border-color: var(–sage); }
+.match-score-badge.high .score-num { color: var(–sage); }
+.match-score-badge.mid { border-color: var(–gold); }
+.match-score-badge.mid .score-num { color: var(–gold); }
+.match-main { flex: 1; }
+.match-company { font-family: ‘Syne’, sans-serif; font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+.match-location { font-size: 11px; color: var(–muted); margin-bottom: 8px; }
+.match-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.tag { padding: 2px 8px; font-size: 10px; letter-spacing: 0.05em; border: 1px solid var(–border); color: var(–muted); }
+.tag.industry { border-color: var(–gold); color: var(–gold); background: rgba(184,154,78,0.06); }
+.tag.match { border-color: var(–sage); color: var(–sage); background: rgba(74,103,65,0.06); }
+.match-rationale { font-size: 12px; line-height: 1.7; color: var(–ink); border-left: 2px solid var(–border); padding-left: 14px; margin-bottom: 16px; }
+.match-benefit { padding: 12px 14px; background: var(–cream); border-left: 3px solid var(–gold); font-size: 11px; line-height: 1.6; color: var(–slate); }
+.match-benefit strong { display: block; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(–gold); margin-bottom: 4px; }
+.match-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(–cream); flex-wrap: wrap; }
 
-/* Success */
-.success-state { text-align: center; padding: 40px 16px; }
-.success-state .big-icon { font-size: 4rem; margin-bottom: 16px; }
-.success-state h2 { font-family: ‘DM Mono’, monospace; font-size: 1.4rem; font-weight: 500; margin-bottom: 8px; }
-.success-state p { color: var(–muted); font-size: 0.8rem; line-height: 1.6; }
-.success-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
-@media (min-width: 640px) { .success-buttons { flex-direction: row; justify-content: center; } }
+/* Error */
+.error-banner { padding: 12px 20px; background: rgba(196,70,30,0.08); border: 1px solid rgba(196,70,30,0.3); color: var(–rust); font-size: 11px; margin-bottom: 16px; display: none; }
+.error-banner.visible { display: block; }
 
-.signed-in-bar { font-size: 0.74rem; color: var(–green); margin: 4px 0 10px; font-weight: 500; }
+footer { position: relative; z-index: 1; border-top: 1px solid var(–border); padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(–muted); letter-spacing: 0.05em; }
 
-/* iPhone tip */
+@media (max-width: 768px) {
+header, main, footer { padding-left: 20px; padding-right: 20px; }
+.oauth-block { flex-wrap: wrap; }
+}
 </style>
 
 </head>
 <body>
 
 <header>
-  <h1>Cal → Export</h1>
-  <span>photo → Google Calendar · Apple Calendar · Sheets</span>
+  <button class="logo" onclick="goHome()" title="New search">
+    <span class="logo-word">Echo</span>
+    <span class="logo-sub">Sales Reference Intelligence</span>
+  </button>
+
 </header>
 
-<div class="container">
+<main>
 
-  <div class="steps">
-    <div class="step active" id="step1"><div class="step-num">1</div> Photo</div>
-    <div class="step" id="step2"><div class="step-num">2</div> Review</div>
-    <div class="step" id="step3"><div class="step-num">3</div> Export</div>
+  <div class="steps-indicator">
+    <div class="step-item active" id="step1Item"><div class="step-num">1</div>API</div>
+    <div class="step-item" id="step2Item"><div class="step-num">2</div>Google</div>
+    <div class="step-item" id="step3Item"><div class="step-num">3</div>Analyze</div>
+    <div class="step-item" id="step4Item" style="display:none"><div class="step-num">4</div>View Matches</div>
   </div>
 
-  <!-- PANEL 1: Upload -->
+  <!-- PANEL 1: API Key -->
 
-  <div class="panel active" id="panel1">
-
-```
-<!-- Mobile camera buttons -->
-<div class="camera-btns">
-
-  <button class="camera-btn btn-library">
-    <input type="file" accept="image/*" id="libraryInput">
-    <span class="camera-btn-icon">🖼</span>
-    <span class="camera-btn-text">
-      <strong>Choose Photo</strong>
-      <span>Select from your iPhone library</span>
-    </span>
-  </button>
-</div>
-
-<!-- Desktop drag zone -->
-<div class="upload-zone" id="uploadZone">
-  <input type="file" accept="image/*" id="dropInput">
-  <p>🗂 Drag & drop a photo here, or click to browse</p>
-</div>
-
-<div class="preview-wrap" id="previewWrap">
-  <img id="previewImg" src="" alt="preview">
-  <div class="preview-info">
-    <p>File: <strong id="fileName">—</strong></p>
-    <p>Size: <strong id="fileSize">—</strong></p>
-    <p style="margin-top:6px;">Claude AI will extract all visible events, dates and notes.</p>
-  </div>
-</div>
-
-<div class="api-key-row">
-  <label>API Key</label>
-  <input type="password" id="anthropicKey" placeholder="sk-ant-..." autocomplete="off">
-</div>
-
-<div id="status1"></div>
-
-<div class="actions-bar" style="margin-top:16px;">
-  <button class="btn btn-accent" id="extractBtn" disabled onclick="extractEvents()">✦ Extract Events with AI</button>
-</div>
-```
-
-  </div>
-
-  <!-- PANEL 2: Review -->
-
-  <div class="panel" id="panel2">
-    <div class="row-count" id="rowCount"></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Date</th><th>Time</th><th>Event / Description</th><th>Category</th><th></th></tr></thead>
-        <tbody id="eventsBody"></tbody>
-      </table>
+  <div class="setup-panel" id="panel1">
+    <div class="panel-header">
+      <span class="panel-title">Welcome to Echo</span>
+      <span class="panel-step">Step 1 of 3</span>
     </div>
-    <button class="btn btn-outline add-row-btn" onclick="addRow()">+ Add row</button>
-    <div id="status2"></div>
-    <div class="actions-bar">
-      <button class="btn btn-outline" onclick="goToPanel(1)">← Back</button>
-      <button class="btn btn-accent" onclick="goToPanel(3)">Continue to Export →</button>
+    <div class="panel-body">
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:20px">
+        Echo empowers every salesperson to speak like an experienced rep &mdash; instantly surfacing the most relevant customer references for any prospect.
+      </p>
+      <div class="error-banner" id="configError"></div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:540px">
+        <label>API Key</label>
+        <input type="text" id="anthropicKey" placeholder="Paste your API key here" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') saveConfig()" style="font-family:'DM Mono',monospace" />
+      </div>
+      <div style="margin-top:20px">
+        <button class="btn btn-primary" onclick="saveConfig()">Continue &rarr;</button>
+      </div>
     </div>
   </div>
-
-  <!-- PANEL 3: Export -->
-
-  <div class="panel" id="panel3">
-    <div class="export-cards">
-
-```
-  <!-- ICS -->
-  <div class="export-card card-ics">
-    <h3>📆 Calendar File</h3>
-    <span class="card-badge badge-ics">.ICS — iCalendar</span>
-    <p>Download and open to import all events into <strong>Google Calendar</strong>, <strong>Apple Calendar</strong>, or <strong>Outlook</strong>.</p>
-    <div class="year-row">
-      <label>Fallback year</label>
-      <input type="number" id="icsYear" value="2026" min="2000" max="2099">
-      <span>used when year isn't shown</span>
+  <!-- PANEL 2: Google Auth -->
+  <div class="setup-panel" id="panel2" style="display:none">
+    <div class="panel-header">
+      <span class="panel-title">Connect Google</span>
+      <span class="panel-step">Step 2 of 3</span>
     </div>
-    <button class="btn btn-blue" onclick="downloadICS()">⬇ Download .ICS File</button>
-    <div id="statusIcs"></div>
-  </div>
-
-  <!-- Sheets -->
-  <div class="export-card card-sheets">
-    <h3>📊 Google Sheets</h3>
-    <span class="card-badge badge-sheets">Append mode</span>
-    <p>Appends new events below existing data each time — builds up a full history. Each row includes a "Scanned on" timestamp.</p>
-
-    <div id="oauthStatus"></div>
-    <button class="btn btn-blue" id="signInBtn" onclick="googleSignIn()">🔑 Sign in with Google</button>
-
-    <div id="sheetsFields" style="display:none;">
-      <div class="signed-in-bar">✓ Signed in as <span id="signedInEmail"></span></div>
-      <button class="btn btn-green" onclick="exportToSheets()">⬆ Append to Sheets</button>
-    </div>
-    <div id="statusSheets"></div>
-  </div>
-
-</div>
-<div class="actions-bar">
-  <button class="btn btn-outline" onclick="goToPanel(2)">← Back to Review</button>
-</div>
-```
-
-  </div>
-
-  <!-- PANEL 4: Success -->
-
-  <div class="panel" id="panel4">
-    <div class="success-state">
-      <div class="big-icon">✅</div>
-      <h2>Appended to Sheets</h2>
-      <p id="successMsg"></p>
-      <div class="success-buttons">
-        <a id="sheetLink" href="https://docs.google.com/spreadsheets/d/16SRCWUmRatEjWoYNJyPQjysv9kTCtMBmJmQT18lT8Q4/edit" target="_blank" class="btn btn-green">Open Spreadsheet ↗</a>
-        <button class="btn btn-outline" onclick="goToPanel(3)">← Back</button>
-        <button class="btn btn-outline" onclick="startOver()">Scan another</button>
+    <div class="panel-body">
+      <div class="error-banner" id="sheetError"></div>
+      <div class="oauth-block">
+        <svg class="oauth-icon" viewBox="0 0 48 48" fill="none">
+          <path d="M43.6 20H24v8h11.3C33.5 32.2 29.3 35 24 35c-6.1 0-11-4.9-11-11s4.9-11 11-11c2.8 0 5.3 1 7.2 2.8l5.7-5.7C33.7 7.1 29.1 5 24 5 13.5 5 5 13.5 5 24s8.5 19 19 19c11 0 18.7-7.7 18.7-18.6 0-1.2-.1-2.3-.1-3.4z" fill="#4285F4"/>
+          <path d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c2.8 0 5.3 1 7.2 2.8l5.7-5.7C33.7 7.1 29.1 5 24 5c-7.6 0-14.1 4.3-17.7 9.7z" fill="#EA4335"/>
+          <path d="M24 43c5 0 9.5-1.7 13-4.5l-6-4.9C29.4 35.6 26.8 36.9 24 37c-5.2 0-9.7-3.5-11.3-8.3l-6.5 5C9.8 39.5 16.4 43 24 43z" fill="#34A853"/>
+          <path d="M43 24c0-1.2-.1-2.3-.2-3.4H24v8h11.3c-.5 2.1-1.7 4-3.3 5.4l6.1 4.9C41.5 35.6 43 30.1 43 24z" fill="#FBBC05"/>
+        </svg>
+        <div class="oauth-info">
+          <h4>Authorize Google Sheets</h4>
+          <p>Echo will securely load your customer reference list in the background. Read-only access &mdash; your data stays private.</p>
+        </div>
+        <button class="btn btn-outline" onclick="connectGoogleSheets()" id="connectBtn">Authorize Google</button>
+      </div>
+      <div id="loadingSheet" class="loading-overlay">
+        <div class="loader-ring"></div>
+        <div class="loading-text">Loading customer references...</div>
       </div>
     </div>
   </div>
 
-</div>
+  <!-- PANEL 3: Prospect -->
+
+  <div class="setup-panel" id="panel3" style="display:none">
+    <div class="panel-header">
+      <span class="panel-title">Prospect Analysis</span>
+    </div>
+    <div class="panel-body">
+      <div class="error-banner" id="analysisError"></div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+        <label>Your Country</label>
+        <select id="userCountry" style="background:var(--paper);border:1px solid var(--border);color:var(--ink);font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;outline:none;width:100%;margin-bottom:4px">
+          <option value="">Select your country...</option>
+          <option selected>United Kingdom</option>
+          <option>United States</option>
+          <option disabled>&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</option>
+          <option>Australia</option><option>Austria</option><option>Belgium</option>
+          <option>Brazil</option><option>Canada</option><option>China</option>
+          <option>Denmark</option><option>Finland</option><option>France</option>
+          <option>Germany</option><option>Hong Kong</option><option>India</option>
+          <option>Ireland</option><option>Italy</option><option>Japan</option>
+          <option>Mexico</option><option>Netherlands</option><option>New Zealand</option>
+          <option>Norway</option><option>Poland</option><option>Portugal</option>
+          <option>Saudi Arabia</option><option>Singapore</option><option>South Africa</option>
+          <option>South Korea</option><option>Spain</option><option>Sweden</option>
+          <option>Switzerland</option><option>UAE</option><option>United Kingdom</option>
+          <option>United States</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+        <label>Prospect Company URL</label>
+        <div class="url-input-row">
+          <input type="url" id="prospectUrl" placeholder="https://prospect-company.com" onkeydown="if(event.key==='Enter') analyzeProspect()" oninput="checkExistingCustomer(this.value)" />
+          <button class="btn" onclick="analyzeProspect()">Analyze</button>
+        </div>
+      </div>
+      <div id="existingCustomerWarning" style="display:none;padding:12px 16px;background:#fffbf0;border:2px solid var(--gold);margin-bottom:16px;display:none">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);margin-bottom:4px">&#9888; Existing Customer Detected</div>
+        <div style="font-size:11px;color:var(--slate);line-height:1.6" id="existingCustomerName"></div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);line-height:1.6">
+        Enter the prospect&rsquo;s website URL. Echo will analyze the company and identify which of your existing customers are the strongest references &mdash; so you walk into every conversation knowing exactly who to name-drop and why.
+      </p>
+      <div class="prospect-preview" id="prospectPreview">
+        <div id="prospectContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+
+  <div id="loadingAnalysis" style="display:none;padding:60px 0;text-align:center">
+    <div style="display:inline-flex;flex-direction:column;align-items:center;gap:20px">
+      <div class="loader-ring"></div>
+      <div class="loading-text">Echo is finding your best references...</div>
+      <div class="loading-steps">
+        <div class="loading-step" id="lstep1">Searching the web for prospect</div>
+        <div class="loading-step" id="lstep2">Reading company profile &amp; news</div>
+        <div class="loading-step" id="lstep3">Comparing against <span id="customerCountTxt">0</span> customers</div>
+        <div class="loading-step" id="lstep4">Ranking reference matches</div>
+        <div class="loading-step" id="lstep5">Crafting sales talking points</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+
+  <div class="results-section" id="resultsSection">
+    <div class="results-header">
+      <div>
+        <div class="results-title">Best References</div>
+        <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:14px;color:var(--muted);margin-top:2px" id="resultsSubtitle"></div>
+      </div>
+      <div style="text-align:right">
+        <div class="results-count" id="matchCount"></div>
+        <button class="btn btn-ghost" onclick="newSearch()" style="margin-top:8px;font-size:10px;padding:6px 14px">&larr; New Prospect</button>
+      </div>
+    </div>
+    <div class="matches-grid" id="matchesGrid"></div>
+    <div id="fullAnalysis" style="margin-top:24px;padding:24px;border:1px solid var(--border);background:var(--card-bg);display:none">
+      <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Strategic Notes</div>
+      <div id="fullAnalysisText" style="font-size:12px;line-height:1.8"></div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <span>Echo &mdash; Sales Reference Intelligence</span>
+  <span>Powered by Caps N Lock&reg; AI</span>
+</footer>
 
 <script>
-// ── Config ─────────────────────────────────────────────────────────────────────
-var SHEET_ID   = '16SRCWUmRatEjWoYNJyPQjysv9kTCtMBmJmQT18lT8Q4';
-var SHEET_NAME = 'Sheet1';
-var HEADERS    = ['Scanned On', 'Date', 'Time', 'Event', 'Category'];
+// ─────────────────────────────────────────
+// HARDCODED CONFIG &mdash; DO NOT EDIT BELOW
+// ─────────────────────────────────────────
+const CONFIG = {
+  googleClientId: '1053973380159-ravg4nv0okt7p4lpk15o6mvn30h4du1l.apps.googleusercontent.com',
+  spreadsheetId:  '19v5a53aOKz_lCMcODQkVvMiwOwW4OnZtYC-0l0sEIhM',
+  sheetName:      'Sheet1',
+  sheetRange:     'A:Z',
+  // Exact column headers from row 1
+  columns: {
+    company:     'company',
+    name:        'name',
+    description: 'description',
+    location:    'location',
+    industry:    'industry',
+    products:    'products',
+    keyValue:    'key values added',
+    website:     'website',
+    country:     'country'
+  }
+};
 
-// ── State ──────────────────────────────────────────────────────────────────────
-var imageBase64 = null, imageType = null, gOAuthToken = null;
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+const state = {
+  anthropicKey: '',
+  googleToken:  null,
+  customers:    [],
+  headers:      [],
+  colIdx:       {},
+  userCountry:  ''
+};
 
-// ── File inputs ────────────────────────────────────────────────────────────────
-document.getElementById('libraryInput').addEventListener('change', function(e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
-document.getElementById('dropInput').addEventListener('change', function(e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
-document.getElementById('anthropicKey').addEventListener('input', checkReady);
+// ─────────────────────────────────────────
+// STEP UI
+// ─────────────────────────────────────────
+function setStep(n) {
+  [1,2,3,4].forEach(i => {
+    const el = document.getElementById('step' + i + 'Item');
+    el.className = 'step-item' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+}
 
-var zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('drag'); });
-zone.addEventListener('dragleave', function() { zone.classList.remove('drag'); });
-zone.addEventListener('drop', function(e) {
-  e.preventDefault(); zone.classList.remove('drag');
-  var f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) handleFile(f);
-});
+// ─────────────────────────────────────────
+// STEP 1 &mdash; API KEY
+// ─────────────────────────────────────────
+function saveConfig() {
+  const key = document.getElementById('anthropicKey').value.trim();
+  if (!key) { showError('configError', 'Please enter your API key.'); return; }
+  state.anthropicKey = key;
+  hideError('configError');
+  document.getElementById('panel1').style.display = 'none';
+  document.getElementById('panel2').style.display = 'block';
+  setStep(2);
+  // Auto-trigger Google auth immediately
+  connectGoogleSheets();
+}
 
-function handleFile(file) {
-  document.getElementById('fileName').textContent = file.name;
-  document.getElementById('fileSize').textContent = (file.size / 1024).toFixed(0) + ' KB';
+// ─────────────────────────────────────────
+// STEP 2 &mdash; GOOGLE OAUTH (GIS) + SHEETS
+// Uses Google Identity Services &mdash; the modern
+// replacement for the deprecated gapi.auth2
+// ─────────────────────────────────────────
 
-  var supported = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  var needsConvert = !supported.includes(file.type);
-
-  var reader = new FileReader();
-  reader.onload = function(ev) {
-    var r = ev.target.result;
-    document.getElementById('previewImg').src = r;
-    document.getElementById('previewWrap').style.display = 'flex';
-
-    // Always pass through canvas: converts HEIC + resizes to max 1500px
-    var img = new Image();
-    img.onload = function() {
-      var MAX = 2000;
-      var w = img.naturalWidth, h = img.naturalHeight;
-      if (w > MAX || h > MAX) {
-        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-        else       { w = Math.round(w * MAX / h); h = MAX; }
+// Wait for a global to become available, polling every 100ms up to 10s
+function waitFor(fn, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      try {
+        const val = fn();
+        if (val) { resolve(val); return; }
+      } catch(e) {}
+      if (Date.now() - start > timeout) {
+        reject(new Error('Timed out waiting for Google libraries to load. Please refresh and try again.'));
+      } else {
+        setTimeout(check, 100);
       }
-      var canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-
-      // Send image as-is — no processing, preserve original quality for Claude
-      var jpeg = canvas.toDataURL('image/jpeg', 0.95);
-      imageBase64 = jpeg.split(',')[1];
-      imageType = 'image/jpeg';
-      var kb = Math.round(jpeg.length * 0.75 / 1024);
-      var resized = (img.naturalWidth !== w || img.naturalHeight !== h);
-      document.getElementById('fileSize').textContent = kb + ' KB' + (resized ? ' · resized to ' + w + '×' + h : '') + '';
-      clearStatus('status1');
-      checkReady();
     };
-    img.onerror = function() {
-      setStatus('status1', 'error', '✗ Could not decode this image. On iPhone, go to Settings → Camera → Formats → Most Compatible and reshoot as JPEG.');
-    };
-    img.src = r;
-  };
-  reader.readAsDataURL(file);
+    check();
+  });
 }
 
-function checkReady() {
-  var key = document.getElementById('anthropicKey').value.trim();
-  document.getElementById('extractBtn').disabled = !(imageBase64 && key.length > 10);
-}
+async function connectGoogleSheets() {
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true;
+  btn.textContent = 'Connecting...';
+  hideError('sheetError');
 
-// ── AI Extraction ──────────────────────────────────────────────────────────────
-async function extractEvents() {
-  var apiKey = document.getElementById('anthropicKey').value.trim();
-  if (!imageBase64 || !apiKey) return;
-
-  setStatus('status1', 'loading', 'Sending to Claude AI — typically 10–20 seconds…');
-  document.getElementById('extractBtn').disabled = true;
-
-  // First detect the year from the image
-  var yearResp;
   try {
-    yearResp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 50,
-        messages: [{ role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: imageType, data: imageBase64 } },
-          { type: 'text', text: 'What year is shown on this calendar? Reply with ONLY the 4-digit year number, nothing else. If no year is visible, reply with the word UNKNOWN.' }
-        ]}]
-      })
-    });
-    var yearData = await yearResp.json();
-    var yearText = (yearData.content && yearData.content[0] && yearData.content[0].text || '').trim();
-    var detectedYear = parseInt(yearText);
-    if (!isNaN(detectedYear) && detectedYear > 2000 && detectedYear < 2100) {
-      document.getElementById('icsYear').value = detectedYear;
-      setStatus('status1', 'loading', 'Year detected: ' + detectedYear + ' — now extracting events…');
-    } else {
-      setStatus('status1', 'loading', 'Year not found in image — using fallback year ' + document.getElementById('icsYear').value + '. Extracting events…');
-    }
-  } catch(e) {
-    // Non-fatal — continue with fallback year
-  }
+    // Wait for both Google libraries to be fully ready
+    await waitFor(() => window.gapi);
+    await waitFor(() => window.google && window.google.accounts && window.google.accounts.oauth2);
 
-  // Helper: call Claude with an image prompt
-  async function callClaude(promptText, maxTokens) {
-    var r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: maxTokens || 2000,
-        messages: [{ role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: imageType, data: imageBase64 } },
-          { type: 'text', text: promptText }
-        ]}]
-      })
-    });
-    var d = await r.json();
-    if (!r.ok) throw new Error((d.error && d.error.message) ? d.error.message : 'HTTP ' + r.status);
-    return d.content.map(function(c) { return c.text || ''; }).join('');
-  }
-
-  function parseEvents(text) {
-    if (text.trim() === 'NOT_A_CALENDAR') throw new Error('This does not look like a calendar. Please upload a photo of a wall calendar, diary, or planner.');
-    var start = text.indexOf('['), end = text.lastIndexOf(']');
-    if (start === -1 || end < start) throw new Error('No JSON array found. Got: ' + text.slice(0, 200));
-    var arr = JSON.parse(text.slice(start, end + 1));
-    if (!Array.isArray(arr)) throw new Error('Response was not a JSON array.');
-    return arr;
-  }
-
-  // Fuzzy similarity score between two strings (0 = nothing in common, 1 = identical)
-  // Uses character bigrams — good for catching single char differences and extra spaces
-  function similarity(a, b) {
-    a = normalise(a); b = normalise(b);
-    if (a === b) return 1;
-    if (a.length < 2 || b.length < 2) return 0;
-    var getBigrams = function(s) {
-      var bg = {}; for (var i = 0; i < s.length - 1; i++) { var bi = s[i]+s[i+1]; bg[bi] = (bg[bi]||0)+1; } return bg;
-    };
-    var ab = getBigrams(a), bb = getBigrams(b);
-    var intersection = 0;
-    Object.keys(ab).forEach(function(k) { if (bb[k]) intersection += Math.min(ab[k], bb[k]); });
-    var total = (a.length - 1) + (b.length - 1);
-    return (2 * intersection) / total;
-  }
-
-  function mergeEvents(pass1, pass2) {
-    // Start with all pass1 events
-    var merged = pass1.filter(function(ev) { return !!ev.event; });
-
-    // Only add pass2 events that are not similar to any existing entry on the same date
-    pass2.forEach(function(ev2) {
-      if (!ev2.event) return;
-      var dateKey = normalise(ev2.date);
-      // Check against all merged events on the same date
-      var isDuplicate = merged.some(function(ev1) {
-        var sameDate = normalise(ev1.date) === dateKey;
-        if (!sameDate) return false;
-        var sim = similarity(ev1.event, ev2.event);
-        return sim >= 0.75; // 75% similar = treat as same event, keep pass1 version
+    // Initialise the gapi client (needed for discovery only &mdash; auth handled by GIS)
+    await new Promise((resolve, reject) => {
+      gapi.load('client', {
+        callback: resolve,
+        onerror: () => reject(new Error('Failed to load gapi client module.'))
       });
-      if (!isDuplicate) merged.push(ev2);
     });
-    return merged;
-  }
 
-  var calPrompt1 = [
-    'You are reading a handwritten calendar. The entries are handwritten so read each word carefully, paying close attention to individual letter shapes.',
-    '',
-    'First: if this is NOT a calendar, respond with exactly: NOT_A_CALENDAR',
-    '',
-    'If it IS a calendar, extract every visible handwritten event, appointment, or note.',
-    '',
-    'IMPORTANT RULES:',
-    '1. DATES: Calendar pages often show dates from adjacent months in greyed-out or smaller cells at the start or end of the grid. Assign each event the correct date it appears under, even if that date belongs to the previous or next month. Include the correct month and year for all dates.',
-    '2. NAMES: Entries often contain person names. These may be common US or European first names (e.g. Sarah, Emily, James, Pierre, Anna, Marco, Sophie) or surnames. Capitalise names correctly. Do not confuse a name with a common word.',
-    '3. TIME: If a time is visible in the entry text AND you are placing it in the "time" field, do NOT repeat the time in the "event" field. The event field should contain only the description, not the time.',
-    '4. EVENT TEXT: Write the event description cleanly, without the time. E.g. if the entry says "2:30pm Dentist", set time to "2:30pm" and event to "Dentist".',
-    '',
-    'Return ONLY a JSON array where each object has:',
-    '- "date": full date e.g. "15 Mar 2026" - include year if visible, otherwise day and month with correct month e.g. "28 Feb"',
-    '- "time": time if shown e.g. "10:00am" or "16:40", else ""',
-    '- "event": description only, no time, names capitalised correctly',
-    '- "category": one of exactly: Social, Medical, School, Work, Other',
-    '',
-    'Category guidance: Medical = doctors, dentist, hospital, health, medication, therapy. School = lessons, exams, parents evening, school trips. Work = meetings, deadlines, conferences, business. Social = friends, family, parties, dinner, cinema, holidays. Other = anything that does not fit.',
-    '',
-    'Include ALL entries. Prefix crossed-out items with [crossed out].',
-    'Return valid JSON array ONLY.'
-  ].join('\n');
+    await gapi.client.init({
+      discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
+    });
 
-  var calPrompt2 = [
-    'You are carefully re-reading a handwritten calendar for a second verification pass.',
-    '',
-    'First: if this is NOT a calendar, respond with exactly: NOT_A_CALENDAR',
-    '',
-    'Focus especially on:',
-    '- Any entries that might have been missed anywhere on the page',
-    '- Correct spelling of handwritten words, especially person names',
-    '- Times and dates that are hard to read',
-    '- Dates from adjacent months that appear greyed-out at the edges of the calendar grid — assign the correct month to each',
-    '',
-    'IMPORTANT RULES:',
-    '1. DATES: Assign each event the correct date it appears under, including the correct month even if it is a different month to the main calendar page.',
-    '2. NAMES: Person names (US and European) should be correctly capitalised. Common examples: Sarah, Emily, James, Anna, Sophie, Marco, Pierre, Graham, Stacey. Do not confuse a name with a regular word.',
-    '3. TIME: If you place a time in the "time" field, do NOT also include it in the "event" field. Event field = description only.',
-    '4. EVENT TEXT: Strip the time from the event description. E.g. "16:40 Dentist with Emily" becomes time "16:40", event "Dentist with Emily".',
-    '',
-    'Return ONLY a JSON array where each object has:',
-    '- "date": full date with correct month e.g. "15 Mar 2026" or "28 Feb 2026"',
-    '- "time": time if shown, else ""',
-    '- "event": description only, no time, names capitalised correctly',
-    '- "category": one of exactly: Social, Medical, School, Work, Other',
-    '',
-    'Category guidance: Medical = doctors, dentist, hospital, health, medication, therapy. School = lessons, exams, parents evening, school trips. Work = meetings, deadlines, conferences, business. Social = friends, family, parties, dinner, cinema, holidays. Other = anything that does not fit.',
-    '',
-    'Include ALL entries including any missed on the first read.',
-    'Return valid JSON array ONLY.'
-  ].join('\n');
+    // GIS TokenClient &mdash; opens a popup, no iframe, no third-party cookies
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CONFIG.googleClientId,
+      scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+      callback: (tokenResponse) => {
+        if (tokenResponse.error) {
+          showError('sheetError', 'Google sign-in failed: ' + tokenResponse.error);
+          resetConnectBtn();
+          return;
+        }
+        state.googleToken = tokenResponse.access_token;
+        fetchSheetData();
+      },
+      error_callback: (err) => {
+        showError('sheetError', 'Google sign-in failed: ' + (err.type || err.message || JSON.stringify(err)));
+        resetConnectBtn();
+      }
+    });
 
-  try {
-    // Pass 1
-    setStatus('status1', 'loading', 'Pass 1 — reading handwritten events…');
-    var text1 = await callClaude(calPrompt1, 2000);
-    var events1 = parseEvents(text1);
-
-    // Pass 2
-    setStatus('status1', 'loading', 'Pass 2 — verifying and catching missed entries (' + events1.length + ' found so far)…');
-    var text2 = await callClaude(calPrompt2, 2000);
-    var events2 = parseEvents(text2);
-
-    // Merge
-    var merged = mergeEvents(events1, events2);
-    var newFromPass2 = merged.length - events1.filter(function(e){ return !!e.event; }).length;
-
-    clearStatus('status1');
-    var msg = merged.length + ' events extracted';
-    if (newFromPass2 > 0) msg += ' (' + newFromPass2 + ' additional found in pass 2)';
-    setStatus('status1', 'success', '✓ ' + msg + ' — review below before exporting.');
-    setTimeout(function() { clearStatus('status1'); }, 4000);
-
-    if (merged.length === 0) throw new Error('No events found in this image. Please check it is a calendar with entries.');
-    populateTable(merged);
-    goToPanel(2);
+    tokenClient.requestAccessToken({ prompt: 'consent' });
 
   } catch (err) {
-    setStatus('status1', 'error', '✗ ' + err.message);
-    document.getElementById('extractBtn').disabled = false;
+    showError('sheetError', err.message || JSON.stringify(err));
+    resetConnectBtn();
   }
 }
 
-// ── Table ──────────────────────────────────────────────────────────────────────
-function parseSimpleDate(dateStr) {
-  // Returns a sortable number YYYYMMDD or Infinity if unparseable
-  if (!dateStr) return Infinity;
-  var MONTHS = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
-    january:1,february:2,march:3,april:4,june:6,july:7,august:8,september:9,october:10,november:11,december:12 };
-  var s = dateStr.trim().toLowerCase();
-  var day, month, year, m;
-  m = s.match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
-  if (m && MONTHS[m[2]]) { day=+m[1]; month=MONTHS[m[2]]; year=+m[3]; }
-  if (!day) { m = s.match(/(\d{1,2})\s+([a-z]+)/); if (m && MONTHS[m[2]]) { day=+m[1]; month=MONTHS[m[2]]; year=2026; } }
-  if (!day) { m = s.match(/([a-z]+)\s+(\d{1,2})/); if (m && MONTHS[m[1]]) { month=MONTHS[m[1]]; day=+m[2]; year=2026; } }
-  if (!day) { m = s.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/); if (m) { day=+m[1]; month=+m[2]; year=m[3]?(+m[3]<100?2000+ +m[3]:+m[3]):2026; } }
-  if (!day || !month) return Infinity;
-  return year * 10000 + month * 100 + day;
+function resetConnectBtn() {
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = false;
+  btn.textContent = 'Authorize Google';
 }
 
-function normalise(s) {
-  return String(s || '').toLowerCase().replace(/\s+/g,' ').trim();
-}
-
-function populateTable(events) {
-  // Sort by date ascending
-  events.sort(function(a, b) { return parseSimpleDate(a.date) - parseSimpleDate(b.date); });
-  document.getElementById('eventsBody').innerHTML = '';
-  events.forEach(function(ev) { addRow(ev); });
-}
-
-function addRow(ev) {
-  ev = ev || {};
-  var cats = ['Social','Medical','School','Work','Other'];
-  var catOptions = cats.map(function(c) {
-    var sel = c === (ev.category || 'Other') ? ' selected' : '';
-    return '<option value="' + c + '"' + sel + '>' + c + '</option>';
-  }).join('');
-  var tr = document.createElement('tr');
-  tr.innerHTML =
-    '<td><input value="' + esc(ev.date || '') + '" placeholder="15 Mar 2026"></td>' +
-    '<td><input value="' + esc(ev.time || '') + '" placeholder="10:00am"></td>' +
-    '<td><input value="' + esc(ev.event || '') + '" placeholder="Event description"></td>' +
-    '<td><select class="cat-select">' + catOptions + '</select></td>' +
-    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove();updateRowCount()">✕</button></td>';
-  document.getElementById('eventsBody').appendChild(tr);
-  updateRowCount();
-}
-
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-
-function updateRowCount() {
-  var n = document.getElementById('eventsBody').querySelectorAll('tr').length;
-  document.getElementById('rowCount').textContent = n + ' event' + (n !== 1 ? 's' : '') + ' extracted — tap any cell to edit';
-}
-
-function getRows() {
-  return Array.from(document.getElementById('eventsBody').querySelectorAll('tr')).map(function(tr) {
-    var inp = tr.querySelectorAll('input');
-    var sel = tr.querySelector('select');
-    return { date: inp[0].value, time: inp[1].value, event: inp[2].value, category: sel ? sel.value : 'Other' };
-  });
-}
-
-// ── ICS Export ─────────────────────────────────────────────────────────────────
-function downloadICS() {
-  var rows = getRows();
-  var fallbackYear = parseInt(document.getElementById('icsYear').value) || 2026;
-  var lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//CalExport//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
-  var count = 0;
-
-  for (var i = 0; i < rows.length; i++) {
-    var row = rows[i];
-    if (!row.event) continue;
-    var parsed = parseEventDate(row.date, row.time, fallbackYear);
-    if (!parsed) continue;
-    var uid = 'ev-' + Date.now() + '-' + (count++) + '@calexport';
-    lines.push('BEGIN:VEVENT');
-    lines.push('UID:' + uid);
-    lines.push('DTSTAMP:' + dtStamp(new Date()));
-    if (parsed.allDay) {
-      lines.push('DTSTART;VALUE=DATE:' + parsed.start);
-      lines.push('DTEND;VALUE=DATE:' + parsed.end);
-    } else {
-      lines.push('DTSTART:' + parsed.start);
-      lines.push('DTEND:' + parsed.end);
-    }
-    lines.push(foldLine('SUMMARY:' + escICS(row.event)));
-    lines.push('END:VEVENT');
-  }
-
-  if (count === 0) {
-    setStatus('statusIcs', 'error', '✗ No parseable dates found. Ensure dates include a month name e.g. "15 Mar 2026".');
-    return;
-  }
-
-  lines.push('END:VCALENDAR');
-  var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'calendar-events.ics';
-  a.click();
-  setStatus('statusIcs', 'success', '✓ Downloaded <strong>' + count + ' event' + (count !== 1 ? 's' : '') + '</strong> — open the file to import into Google or Apple Calendar.');
-}
-
-function parseEventDate(dateStr, timeStr, fallbackYear) {
-  if (!dateStr) return null;
-  var MONTHS = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
-    january:0,february:1,march:2,april:3,june:5,july:6,august:7,september:8,october:9,november:10,december:11 };
-  var s = dateStr.trim().toLowerCase();
-  var day, month, year, m;
-
-  m = s.match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
-  if (m && MONTHS[m[2]] !== undefined) { day=+m[1]; month=MONTHS[m[2]]; year=+m[3]; }
-  if (day===undefined) { m = s.match(/([a-z]+)\s+(\d{1,2})[,\s]+(\d{4})/); if (m && MONTHS[m[1]]!==undefined) { month=MONTHS[m[1]]; day=+m[2]; year=+m[3]; } }
-  if (day===undefined) { m = s.match(/(\d{1,2})\s+([a-z]+)/); if (m && MONTHS[m[2]]!==undefined) { day=+m[1]; month=MONTHS[m[2]]; year=fallbackYear; } }
-  if (day===undefined) { m = s.match(/([a-z]+)\s+(\d{1,2})/); if (m && MONTHS[m[1]]!==undefined) { month=MONTHS[m[1]]; day=+m[2]; year=fallbackYear; } }
-  if (day===undefined) { m = s.match(/(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?/); if (m) { day=+m[1]; month=+m[2]-1; year=m[3]?(+m[3]<100?2000+ +m[3]:+m[3]):fallbackYear; } }
-  if (day===undefined || month===undefined || isNaN(day) || isNaN(month)) return null;
-  if (!year) year = fallbackYear;
-
-  var hour=null, min=0;
-  if (timeStr) {
-    var t = timeStr.trim().toLowerCase();
-    var tm = t.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/) || t.match(/(\d{1,2})\s*(am|pm)/);
-    if (tm) {
-      hour=+tm[1]; min=tm[2]&&/\d/.test(tm[2])?+tm[2]:0;
-      var ap=(tm[3]||tm[2]||'').toLowerCase();
-      if (ap==='pm'&&hour<12) hour+=12;
-      if (ap==='am'&&hour===12) hour=0;
-    }
-  }
-  var p = function(n) { return String(n).padStart(2,'0'); };
-  var base = ''+year+p(month+1)+p(day);
-  if (hour===null) { var nd=new Date(year,month,day+1); return {allDay:true, start:base, end:''+nd.getFullYear()+p(nd.getMonth()+1)+p(nd.getDate())}; }
-  return {allDay:false, start:base+'T'+p(hour)+p(min)+'00', end:base+'T'+p(Math.min(hour+1,23))+p(min)+'00'};
-}
-
-function dtStamp(d) { var p=function(n){return String(n).padStart(2,'0');}; return ''+d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'T'+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+'Z'; }
-function escICS(s) { return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n'); }
-function foldLine(line) {
-  if (line.length<=75) return line;
-  var out=[],i=0;
-  while(i<line.length){out.push(line.slice(i,i+(i===0?75:74)));i+=(i===0?75:74);}
-  return out.join('\r\n ');
-}
-
-// ── Google OAuth ───────────────────────────────────────────────────────────────
-var GOOGLE_CLIENT_ID = '805439535688-q1v4rq4oost2dncru7gnj86124se19d3.apps.googleusercontent.com';
-
-function googleSignIn() {
-  var clientId = GOOGLE_CLIENT_ID;
-  if (!window.google || !window.google.accounts) { setStatus('oauthStatus','error','✗ Google Identity Services not loaded. Check your connection.'); return; }
-
-  setStatus('oauthStatus','loading','Opening Google sign-in…');
-
-  var client = google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email',
-    callback: function(tokenResponse) {
-      if (tokenResponse.error) { setStatus('oauthStatus','error','✗ Sign-in failed: '+tokenResponse.error); return; }
-      gOAuthToken = tokenResponse.access_token;
-      clearStatus('oauthStatus');
-      fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: {'Authorization':'Bearer '+gOAuthToken} })
-        .then(function(r){return r.json();}).then(function(info){
-          document.getElementById('signedInEmail').textContent = info.email || 'your Google account';
-          document.getElementById('sheetsFields').style.display = 'block';
-          document.getElementById('signInBtn').textContent = '🔄 Re-authenticate';
-          document.getElementById('signInBtn').style.background = '#555';
-        });
-    }
-  });
-  client.requestAccessToken();
-}
-
-// ── Sheets Append ──────────────────────────────────────────────────────────────
-async function exportToSheets() {
-  if (!gOAuthToken) { setStatus('statusSheets','error','✗ Please sign in with Google first.'); return; }
-
-  var rows = getRows();
-  if (rows.length === 0) { setStatus('statusSheets','error','✗ No events to export.'); return; }
-
-  setStatus('statusSheets','loading','Reading existing sheet data…');
-
-  var scannedOn = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-
+async function fetchSheetData() {
+  document.getElementById('loadingSheet').classList.add('active');
+  hideError('sheetError');
   try {
-    // Step 1: Read ALL existing data to check for duplicates
-    var getResp = await fetch(
-      'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(SHEET_NAME + '!A:E'),
-      { headers: { 'Authorization': 'Bearer ' + gOAuthToken } }
-    );
-    var getData = await getResp.json();
-    if (!getResp.ok) throw new Error((getData.error && getData.error.message) || 'Could not read sheet');
-
-    var existingValues = getData.values || [];
-    var existingRows = existingValues.length;
-
-    // Build a set of existing date+event keys for fast dedup lookup
-    // Columns: Scanned On (0), Date (1), Time (2), Event (3)
-    var existingKeys = {};
-    for (var i = 1; i < existingValues.length; i++) { // skip header row
-      var row = existingValues[i];
-      var key = normalise(row[1]) + '|' + normalise(row[3]);
-      existingKeys[key] = true;
-    }
-
-    // Step 2: Filter out duplicates
-    var newRows = rows.filter(function(r) {
-      var key = normalise(r.date) + '|' + normalise(r.event);
-      return !existingKeys[key];
+    const range = encodeURIComponent(CONFIG.sheetName + '!' + CONFIG.sheetRange);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${range}`;
+    const resp = await fetch(url, {
+      headers: { Authorization: 'Bearer ' + state.googleToken }
     });
-
-    var dupCount = rows.length - newRows.length;
-
-    if (newRows.length === 0) {
-      setStatus('statusSheets','success','✓ No new events to add — all ' + rows.length + ' event' + (rows.length!==1?'s':'') + ' already exist in the sheet.' + (dupCount > 0 ? ' (' + dupCount + ' duplicate' + (dupCount!==1?'s':'') + ' skipped)' : ''));
+    if (!resp.ok) {
+      const errBody = await resp.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || 'HTTP ' + resp.status);
+    }
+    const data = await resp.json();
+    const rows = data.values || [];
+    if (rows.length < 2) {
+      showError('sheetError', 'Sheet appears empty or has only headers.');
+      document.getElementById('loadingSheet').classList.remove('active');
+      resetConnectBtn();
       return;
     }
-
-    // Step 3: If sheet is empty write headers first
-    if (existingRows === 0) {
-      var headerResp = await fetch(
-        'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(SHEET_NAME + '!A1') + '?valueInputOption=USER_ENTERED',
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + gOAuthToken },
-          body: JSON.stringify({ range: SHEET_NAME + '!A1', majorDimension: 'ROWS', values: [HEADERS] })
-        }
-      );
-      var headerData = await headerResp.json();
-      if (!headerResp.ok) throw new Error((headerData.error && headerData.error.message) || 'Could not write headers');
-      existingRows = 1;
-    }
-
-    // Step 4: Append only new rows
-    setStatus('statusSheets','loading','Appending ' + newRows.length + ' new event' + (newRows.length!==1?'s':'') + (dupCount > 0 ? ' (' + dupCount + ' duplicate' + (dupCount!==1?'s':'') + ' skipped)' : '') + '…');
-
-    var appendRange = SHEET_NAME + '!A' + (existingRows + 1);
-    var values = newRows.map(function(r) { return [scannedOn, r.date, r.time, r.event, r.category]; });
-
-    var appendResp = await fetch(
-      'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(appendRange) + '?valueInputOption=USER_ENTERED',
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + gOAuthToken },
-        body: JSON.stringify({ range: appendRange, majorDimension: 'ROWS', values: values })
-      }
-    );
-    var appendData = await appendResp.json();
-    if (!appendResp.ok) {
-      if (appendResp.status === 401) throw new Error('Session expired — please sign in again.');
-      throw new Error((appendData.error && appendData.error.message) || 'Sheets API error');
-    }
-
-    clearStatus('statusSheets');
-    var msg = newRows.length + ' new event' + (newRows.length!==1?'s':'') + ' added on ' + scannedOn + '.';
-    if (dupCount > 0) msg += ' ' + dupCount + ' duplicate' + (dupCount!==1?'s':'') + ' skipped.';
-    document.getElementById('successMsg').textContent = msg;
-    goToPanel(4);
-
+    state.headers = rows[0];
+    buildColumnIndex(state.headers);
+    const dataRows = rows.slice(1).filter(r => r.some(c => c));
+    state.customers = parseCustomers(dataRows);
+    document.getElementById('customerCountTxt').textContent = state.customers.length;
+    document.getElementById('loadingSheet').classList.remove('active');
+    // Skip sheet preview &mdash; go straight to prospect analysis
+    document.getElementById('panel2').style.display = 'none';
+    document.getElementById('panel3').style.display = 'block';
+    setStep(3);
   } catch (err) {
-    setStatus('statusSheets','error','✗ ' + err.message);
+    document.getElementById('loadingSheet').classList.remove('active');
+    showError('sheetError', 'Could not read sheet: ' + err.message);
+    resetConnectBtn();
   }
 }
 
-// ── Navigation ─────────────────────────────────────────────────────────────────
-function goToPanel(n) {
-  [1,2,3,4].forEach(function(i) {
-    document.getElementById('panel'+i).classList.toggle('active', i===n);
-    var s = document.getElementById('step'+i);
-    if (!s) return;
-    s.classList.toggle('active', i===n);
-    s.classList.toggle('done', i<n);
+
+
+// ─────────────────────────────────────────
+// COLUMN MAPPING &mdash; exact then fuzzy
+// ─────────────────────────────────────────
+function buildColumnIndex(headers) {
+  const h = headers.map(x => (x || '').toLowerCase().trim());
+  function findCol(target) {
+    const t = target.toLowerCase().trim();
+    let idx = h.indexOf(t);
+    if (idx !== -1) return idx;
+    return h.findIndex(x => x.includes(t));
+  }
+  state.colIdx = {};
+  Object.entries(CONFIG.columns).forEach(([field, colName]) => {
+    state.colIdx[field] = findCol(colName);
   });
 }
 
-function startOver() {
-  imageBase64 = null;
-  document.getElementById('previewWrap').style.display = 'none';
-  document.getElementById('extractBtn').disabled = true;
-  document.getElementById('eventsBody').innerHTML = '';
-  ['status1','status2','statusIcs','statusSheets','oauthStatus'].forEach(clearStatus);
-  goToPanel(1);
+function col(row, field) {
+  const i = state.colIdx[field];
+  return (i !== undefined && i !== -1) ? (row[i] || '') : '';
 }
 
-function setStatus(id, type, msg) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.innerHTML = '<div class="status-box '+type+'">'+(type==='loading'?'<div class="spinner"></div>':'')+msg+'</div>';
+function parseCustomers(rows) {
+  return rows.map(row => ({
+    company:     col(row, 'company'),
+    name:        col(row, 'name'),
+    description: col(row, 'description'),
+    location:    col(row, 'location'),
+    industry:    col(row, 'industry'),
+    products:    col(row, 'products'),
+    keyValue:    col(row, 'keyValue'),
+    website:     col(row, 'website'),
+    country:     col(row, 'country'),
+    raw: row
+  })).filter(c => c.company || c.name);
 }
-function clearStatus(id) { var el=document.getElementById(id); if(el) el.innerHTML=''; }
+
+// Sheet preview removed &mdash; customers load silently in background
+
+// ─────────────────────────────────────────
+// STEP 3 &mdash; PROSPECT ANALYSIS
+// ─────────────────────────────────────────
+// Extract normalised domain from a URL string
+function extractDomain(url) {
+  try {
+    const u = new URL(url.startsWith('http') ? url : 'https://' + url);
+    return u.hostname.replace(/^www\./, '').toLowerCase().trim();
+  } catch(e) {
+    return url.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].trim();
+  }
+}
+
+// Check if entered URL matches an existing customer &mdash; runs on input
+function checkExistingCustomer(val) {
+  const warning = document.getElementById('existingCustomerWarning');
+  const nameEl = document.getElementById('existingCustomerName');
+  if (!val || !state.customers.length) { warning.style.display = 'none'; return; }
+  const enteredDomain = extractDomain(val);
+  const match = state.customers.find(c => {
+    if (!c.website) return false;
+    const customerDomain = extractDomain(c.website);
+    return customerDomain && enteredDomain && (
+      customerDomain === enteredDomain ||
+      customerDomain.includes(enteredDomain) ||
+      enteredDomain.includes(customerDomain)
+    );
+  });
+  if (match) {
+    const name = match.company || match.name;
+    nameEl.innerHTML = '<strong>' + name + '</strong> is already one of your reference customers. The analysis will still run &mdash; results may show similar customers rather than this company itself.';
+    warning.style.display = 'block';
+  } else {
+    warning.style.display = 'none';
+  }
+}
+
+async function analyzeProspect() {
+  const url = document.getElementById('prospectUrl').value.trim();
+  const userCountry = (document.getElementById('userCountry')?.value || '').trim();
+  state.userCountry = userCountry;
+  if (!url)                    { showError('analysisError', 'Please enter the prospect\'s website URL.'); return; }
+  if (!userCountry)            { showError('analysisError', 'Please select your country first.'); return; }
+  if (!state.anthropicKey)     { showError('analysisError', 'API key missing &mdash; please reload and re-enter.'); return; }
+  if (!state.customers.length) { showError('analysisError', 'No customers loaded from your sheet yet.'); return; }
+
+  hideError('analysisError');
+  document.getElementById('panel3').style.display = 'none';
+  document.getElementById('loadingAnalysis').style.display = 'block';
+  document.getElementById('resultsSection').classList.remove('visible');
+
+  const steps = ['lstep1','lstep2','lstep3','lstep4','lstep5'];
+  let si = 0;
+  const iv = setInterval(() => {
+    if (si > 0) document.getElementById(steps[si-1]).className = 'loading-step done';
+    if (si < steps.length) document.getElementById(steps[si]).className = 'loading-step active';
+    si++;
+    if (si > steps.length) clearInterval(iv);
+  }, 1600);
+
+  try {
+    const result = await runClaudeAnalysis(url);
+    clearInterval(iv);
+    steps.forEach(s => document.getElementById(s).className = 'loading-step done');
+    setTimeout(() => {
+      document.getElementById('loadingAnalysis').style.display = 'none';
+      renderResults(result, url);
+      setStep(4);
+    }, 500);
+  } catch (err) {
+    clearInterval(iv);
+    document.getElementById('loadingAnalysis').style.display = 'none';
+    document.getElementById('panel3').style.display = 'block';
+    showError('analysisError', 'Analysis failed: ' + err.message);
+  }
+}
+
+async function runClaudeAnalysis(prospectUrl) {
+  // Build customer list keyed by exact company name &mdash; no numeric indexes
+  // to prevent Claude returning an index that maps to the wrong customer
+  const customerList = state.customers.map((c) => {
+    const displayName = c.company || c.name;
+    return `CUSTOMER_KEY: "${displayName}"
+  Company: ${displayName}
+  Country: ${c.country || 'Unknown'}
+  Industry: ${c.industry || 'Unknown'}
+  Location: ${c.location || 'Unknown'}
+  Description: ${c.description || 'N/A'}
+  Products used: ${c.products || 'N/A'}
+  Key value added: ${c.keyValue || 'N/A'}
+  Website: ${c.website || 'N/A'}`;
+  }).join('\n\n---\n\n');
+
+  const prompt = `You are a senior sales intelligence analyst for Echo &mdash; a platform that empowers every salesperson to speak like an experienced rep by surfacing the most relevant customer references for any prospect.
+
+PROSPECT URL: ${prospectUrl}
+
+Use your web search tool to research this prospect company. Search for their website, what they do, their industry, company size, recent news, and any business challenges they may face. Use the real information you find &mdash; do not guess or infer.
+
+YOUR EXISTING CUSTOMER REFERENCES:
+${customerList}
+
+THE SALES REP'S COUNTRY: \${state.userCountry} (treat UK, United Kingdom, Great Britain, England, Scotland, Wales as the same country; treat USA, US, United States as the same country; treat UAE, United Arab Emirates as the same country)
+
+TASK:
+1. Search the web to find real, accurate information about the prospect company from the URL above.
+2. Based on what you actually find, identify the best matching customers from the list above using these rules:
+
+COUNTRY RULES (strictly enforce):
+- SAME COUNTRY as the sales rep (\${state.userCountry}): Include all matches with score 80 or above, up to 5.
+- DIFFERENT COUNTRY: Only include if score is 90 or above, maximum 3 total across all other countries combined.
+- Always show same-country matches first, then international matches after.
+- Include a "country" field in each match set to the customer's country from the reference list.
+
+3. Prioritize matches on: same or adjacent industry, similar business challenges, relevant products used, and compelling value delivered.
+4. For each match, craft a natural talking point a sales rep could say in a real conversation &mdash; e.g. "We work with [Company] who had the exact same challenge &mdash; they were able to [outcome]."
+
+CRITICAL ACCURACY RULE: In your JSON response, the "customerName" field MUST contain the exact company name copied character-for-character from the CUSTOMER_KEY field in the reference list above. Do not paraphrase, abbreviate, or alter the name in any way. This is used to look up the correct customer record.
+
+After searching, respond ONLY with valid JSON, no preamble, no markdown fences:
+{
+  "prospect": {
+    "name": "Real company name found via search",
+    "domain": "${prospectUrl}",
+    "inferredIndustry": "Industry based on real research",
+    "inferredSize": "Company size based on real research",
+    "inferredChallenges": ["real challenge 1", "real challenge 2", "real challenge 3"],
+    "summary": "2–3 sentences on what this company actually does and what they prioritize, based on your research."
+  },
+  "matches": [
+    {
+      "rank": 1,
+      "customerName": "Exact company name copied verbatim from CUSTOMER_KEY",
+      "country": "Customer country from reference list",
+      "sameCountry": true,
+      "score": 92,
+      "matchReasons": ["shared industry", "similar challenge", "product overlap"],
+      "rationale": "2–3 sentences on why this customer is a compelling reference for this specific prospect.",
+      "talkingPoint": "Natural sentence a rep would actually say to introduce this reference.",
+      "matchDimensions": {
+        "industryFit": 90,
+        "challengeFit": 85,
+        "productFit": 88,
+        "valueFit": 92
+      }
+    }
+  ],
+  "strategicNotes": "2–3 sentences on how to sequence or frame these references in the conversation."
+}`;
+
+  const webSearchTool = {
+    type: 'web_search_20250305',
+    name: 'web_search'
+  };
+
+  // ── Agentic loop: keep sending until Claude stops using tools ──
+  const messages = [{ role: 'user', content: prompt }];
+  let finalText = '';
+
+  for (let turn = 0; turn < 8; turn++) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': state.anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        tools: [webSearchTool],
+        messages
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API error ' + response.status);
+    }
+
+    const data = await response.json();
+
+    // Collect any text from this turn
+    const textBlocks = data.content.filter(b => b.type === 'text');
+    if (textBlocks.length) finalText = textBlocks.map(b => b.text).join('');
+
+    // If Claude is done, break
+    if (data.stop_reason === 'end_turn') break;
+
+    // If Claude used web search, feed results back and continue
+    if (data.stop_reason === 'tool_use') {
+      const toolUseBlocks = data.content.filter(b => b.type === 'tool_use');
+
+      // Add Claude's response (with tool calls) to messages
+      messages.push({ role: 'assistant', content: data.content });
+
+      // Add tool results for each search
+      const toolResults = toolUseBlocks.map(block => ({
+        type: 'tool_result',
+        tool_use_id: block.id,
+        content: block.type === 'tool_use' ? JSON.stringify(block.input) : ''
+      }));
+
+      messages.push({ role: 'user', content: toolResults });
+    } else {
+      // Any other stop reason &mdash; we're done
+      break;
+    }
+  }
+
+  if (!finalText) throw new Error('No response received from analysis.');
+  const clean = finalText.replace(/```json\n?|\n?```/g, '').trim();
+
+  // Extract the JSON object from the response
+  const jsonMatch = clean.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('Could not parse analysis response.');
+  return JSON.parse(jsonMatch[0]);
+}
+
+// ─────────────────────────────────────────
+// RENDER RESULTS
+// ─────────────────────────────────────────
+function renderResults(result, url) {
+  const { prospect, matches, strategicNotes } = result;
+
+  // Prospect summary
+  document.getElementById('prospectPreview').classList.add('visible');
+  document.getElementById('prospectContent').innerHTML = `
+    <h4>${prospect.name || url}</h4>
+    <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px">${prospect.summary || ''}</p>
+    <div class="prospect-meta">
+      <span class="meta-chip industry">⬡ ${prospect.inferredIndustry || 'Unknown'}</span>
+      <span class="meta-chip">🌐 ${prospect.domain || url}</span>
+      ${prospect.inferredSize ? `<span class="meta-chip">${prospect.inferredSize}</span>` : ''}
+    </div>
+    ${prospect.inferredChallenges?.length ? `
+    <div style="margin-top:12px;font-size:11px;color:var(--muted)">
+      <strong style="color:var(--ink)">Likely challenges:</strong>
+      ${prospect.inferredChallenges.map(c => `<span style="display:inline-block;margin:3px 6px 0 0;padding:2px 8px;border:1px solid var(--border)">${c}</span>`).join('')}
+    </div>` : ''}
+  `;
+
+  document.getElementById('resultsSubtitle').textContent = 'for ' + (prospect.name || url);
+  const userCountry = (state.userCountry || '').toLowerCase().trim();
+
+  // Normalise country strings so UK / United Kingdom / U.K. all match
+  function normaliseCountry(c) {
+    const s = (c || '').toLowerCase().trim()
+      .replace(/\.+/g, '')       // remove dots: u.k. -> uk
+      .replace(/\s+/g, ' ');     // collapse spaces
+    const aliases = {
+      'uk': 'united kingdom',
+      'great britain': 'united kingdom',
+      'england': 'united kingdom',
+      'scotland': 'united kingdom',
+      'wales': 'united kingdom',
+      'northern ireland': 'united kingdom',
+      'britain': 'united kingdom',
+      'usa': 'united states',
+      'us': 'united states',
+      'america': 'united states',
+      'uae': 'united arab emirates',
+      'emirates': 'united arab emirates',
+    };
+    return aliases[s] || s;
+  }
+
+  const normUserCountry = normaliseCountry(userCountry);
+
+  // Apply country rules as client-side safety net
+  const sameCountryMatches = matches.filter(m => {
+    const mCountry = normaliseCountry(m.country || '');
+    return mCountry === normUserCountry && (m.score || 0) >= 80;
+  });
+
+  const intlMatches = matches
+    .filter(m => {
+      const mCountry = normaliseCountry(m.country || '');
+      return mCountry !== normUserCountry && (m.score || 0) >= 90;
+    })
+    .slice(0, 3);
+
+  const filteredMatches = [...sameCountryMatches, ...intlMatches];
+
+  const sameCountryCount = sameCountryMatches.length;
+  const intlCount = intlMatches.length;
+
+  document.getElementById('matchCount').textContent = filteredMatches.length > 0
+    ? sameCountryCount + ' local' + (intlCount > 0 ? ' + ' + intlCount + ' international' : '') + ' reference' + (filteredMatches.length !== 1 ? 's' : '')
+    : 'No strong matches — showing closest';
+
+  // Insert section dividers between local and international
+  let insertIntlDivider = sameCountryCount > 0 && intlCount > 0;
+
+  const grid = document.getElementById('matchesGrid');
+  grid.innerHTML = '';
+
+  // Build a name→customer map for reliable lookup (case-insensitive, trimmed)
+  const customerByName = {};
+  state.customers.forEach(c => {
+    const key = (c.company || c.name || '').toLowerCase().trim();
+    customerByName[key] = c;
+  });
+
+  const noStrongMatches = filteredMatches.length === 0;
+
+  // If no matches above 80, show warning banner then fall back to top 3 from full list
+  const displayMatches = noStrongMatches
+    ? [...matches].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 3)
+    : filteredMatches;
+
+  if (noStrongMatches) {
+    grid.innerHTML = `
+      <div style="margin-bottom:2px;padding:20px 28px;background:#fff8f6;border:2px solid var(--rust);display:flex;align-items:flex-start;gap:16px">
+        <div style="font-size:24px;line-height:1;flex-shrink:0">&empty;</div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--rust);margin-bottom:6px">No Strong Reference Match Found</div>
+          <div style="font-size:12px;color:var(--slate);line-height:1.7">None of your existing customers scored 80 or above for this prospect. This may mean the prospect operates in an industry or at a scale not yet well represented in your reference sheet.<br><br>
+          <strong style="color:var(--ink)">The 3 closest matches are shown below</strong> &mdash; use with caution and lead with the relevant aspects only.</div>
+        </div>
+      </div>`;
+  }
+
+  displayMatches.forEach((match, idx) => {
+    // Insert international section divider before first intl match
+    if (insertIntlDivider && idx === sameCountryCount) {
+      const divider = document.createElement('div');
+      divider.style.cssText = 'padding:14px 20px;background:var(--cream);border:1px solid var(--border);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-top:8px';
+      divider.innerHTML = '&#127758; International References &mdash; Score 90+ Only';
+      grid.appendChild(divider);
+    }
+    // Look up by name &mdash; never by index &mdash; to guarantee correct data
+    const lookupKey = (match.customerName || '').toLowerCase().trim();
+    const c = customerByName[lookupKey]
+           || state.customers.find(x =>
+                (x.company || x.name || '').toLowerCase().includes(lookupKey) ||
+                lookupKey.includes((x.company || x.name || '').toLowerCase())
+              );
+    if (!c) return;
+
+    const displayName = c.company || c.name;
+    const score = match.score || 0;
+    const scoreClass = score >= 85 ? 'high' : score >= 70 ? 'mid' : '';
+    const isFallback = noStrongMatches;
+
+    const card = document.createElement('div');
+    card.className = 'match-card';
+    card.style.animationDelay = (idx * 0.1) + 's';
+
+    card.innerHTML = `
+      ${isFallback ? '<div style="position:absolute;top:0;left:0;right:0;padding:4px 14px;background:var(--rust);color:var(--paper);font-size:9px;letter-spacing:0.12em;text-transform:uppercase">Closest match &mdash; below 80 threshold</div>' : ''}
+      <div class="match-rank" style="${isFallback ? 'top:40px' : ''}">${match.rank}</div>
+      <div class="match-top">
+        <div class="match-score-badge ${scoreClass}">
+          <span class="score-num">${score}</span>
+          <span class="score-pct">match</span>
+        </div>
+        <div class="match-main">
+          <div class="match-company">${displayName}</div>
+          <div class="match-location">${c.location || ''}${c.industry ? ' · ' + c.industry : ''}${c.country ? ' &mdash; <span style=\'display:inline-block;padding:1px 7px;border:1px solid var(--border);font-size:9px;letter-spacing:0.08em\'>&#127760; ' + c.country + '</span>' : ''}</div>
+          <div class="match-tags">
+            ${c.industry ? `<span class="tag industry">${c.industry}</span>` : ''}
+            ${(match.matchReasons || []).slice(0,2).map(r => `<span class="tag match">✓ ${r}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="match-rationale">${match.rationale || c.description}</div>
+      ${c.keyValue ? `
+      <div class="match-benefit">
+        <strong>Key Value Delivered</strong>
+        ${c.keyValue}
+      </div>` : ''}
+      ${c.products ? `
+      <div style="margin-top:10px;padding:8px 14px;background:var(--paper);border:1px solid var(--border);font-size:11px;color:var(--slate)">
+        <strong style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px">Products Used</strong>
+        ${c.products}
+      </div>` : ''}
+      ${match.talkingPoint ? `
+      <div class="talking-point-block" style="margin-top:14px;padding:12px 14px;border-left:3px solid var(--rust);font-size:11px;line-height:1.7;color:var(--slate)">
+        <strong style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--rust);display:block;margin-bottom:5px">Sales Talking Point</strong>
+        <span class="tp-text">${match.talkingPoint}</span>
+      </div>` : ''}
+      <div class="match-actions">
+        ${c.website ? `<a href="${c.website}" target="_blank" class="btn btn-outline" style="font-size:10px;padding:6px 14px;text-decoration:none">View Website ↗</a>` : ''}
+        <button class="btn btn-ghost" style="font-size:10px;padding:6px 14px" onclick="copyTalkingPoint(this)">Copy Talking Point</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  if (strategicNotes) {
+    document.getElementById('fullAnalysisText').textContent = strategicNotes;
+    document.getElementById('fullAnalysis').style.display = 'block';
+  }
+
+  document.getElementById('resultsSection').classList.add('visible');
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────
+function copyTalkingPoint(btn) {
+  const card = btn.closest('.match-card');
+  const tp = card?.querySelector('.tp-text')?.textContent?.trim();
+  if (tp) { navigator.clipboard.writeText(tp).catch(() => {}); showToast('Talking point copied!'); }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:30px;right:30px;background:var(--ink);color:var(--paper);padding:10px 20px;font-family:"DM Mono",monospace;font-size:11px;z-index:1000;letter-spacing:0.05em';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+function newSearch() {
+  document.getElementById('resultsSection').classList.remove('visible');
+  document.getElementById('prospectPreview').classList.remove('visible');
+  document.getElementById('prospectUrl').value = '';
+  document.getElementById('panel3').style.display = 'block';
+  setStep(3);
+  document.getElementById('panel3').scrollIntoView({ behavior: 'smooth' });
+  ['lstep1','lstep2','lstep3','lstep4','lstep5'].forEach(id => {
+    document.getElementById(id).className = 'loading-step';
+  });
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('visible'); }
+}
+
+function hideError(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('visible');
+}
+
+
+function goHome() {
+  // Reset to prospect input panel, preserving auth
+  ['panel1','panel2'].forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById('resultsSection').classList.remove('visible');
+  const preview = document.getElementById('prospectPreview');
+  if (preview) preview.classList.remove('visible');
+  const url = document.getElementById('prospectUrl');
+  if (url) url.value = '';
+  // If customers already loaded, go straight to panel 3
+  if (state.customers.length) {
+    document.getElementById('panel3').style.display = 'block';
+    setStep(3);
+  } else {
+    // Not yet authenticated &mdash; go back to start
+    document.getElementById('panel1').style.display = 'block';
+    setStep(1);
+  }
+  ['lstep1','lstep2','lstep3','lstep4','lstep5'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'loading-step';
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
 
 </body>
