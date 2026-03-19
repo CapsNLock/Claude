@@ -89,6 +89,7 @@ main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; paddin
 label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(–muted); }
 input { background: var(–paper); border: 1px solid var(–border); color: var(–ink); font-family: ‘DM Mono’, monospace; font-size: 12px; padding: 10px 14px; outline: none; transition: border-color 0.2s; width: 100%; }
 input:focus { border-color: var(–rust); }
+.dm-mono-input { font-family: ‘DM Mono’, monospace; }
 
 /* Buttons */
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; font-family: ‘DM Mono’, monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border: none; transition: all 0.15s; }
@@ -224,7 +225,7 @@ header, main, footer { padding-left: 20px; padding-right: 20px; }
       <div class="error-banner" id="configError"></div>
       <div style="display:flex;flex-direction:column;gap:6px;max-width:540px">
         <label>API Key</label>
-        <input type="text" id="anthropicKey" placeholder="Paste your API key here" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') saveConfig()" style="font-family:'DM Mono',monospace" />
+        <input type="text" id="anthropicKey" placeholder="Paste your API key here" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') saveConfig()" class="dm-mono-input" />
       </div>
       <div style="margin-top:20px">
         <button class="btn btn-primary" onclick="saveConfig()">Continue &rarr;</button>
@@ -269,7 +270,7 @@ header, main, footer { padding-left: 20px; padding-right: 20px; }
       <div class="error-banner" id="analysisError"></div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
         <label>Your Country</label>
-        <select id="userCountry" style="background:var(--paper);border:1px solid var(--border);color:var(--ink);font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;outline:none;width:100%;margin-bottom:4px">
+        <select id="userCountry" style="background:var(--paper);border:1px solid var(--border);color:var(--ink);font-family:monospace;font-size:12px;padding:10px 14px;outline:none;width:100%;margin-bottom:4px">
           <option value="">Select your country...</option>
           <option selected>United Kingdom</option>
           <option>United States</option>
@@ -295,7 +296,7 @@ header, main, footer { padding-left: 20px; padding-right: 20px; }
         </div>
       </div>
       <div id="existingCustomerWarning" style="display:none;padding:12px 16px;background:#fffbf0;border:2px solid var(--gold);margin-bottom:16px;display:none">
-        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);margin-bottom:4px">&#9888; Existing Customer Detected</div>
+        <div style="font-family:sans-serif;font-weight:700;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);margin-bottom:4px">&#9888; Existing Customer Detected</div>
         <div style="font-size:11px;color:var(--slate);line-height:1.6" id="existingCustomerName"></div>
       </div>
       <p style="font-size:11px;color:var(--muted);line-height:1.6">
@@ -329,7 +330,7 @@ header, main, footer { padding-left: 20px; padding-right: 20px; }
     <div class="results-header">
       <div>
         <div class="results-title">Best References</div>
-        <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:14px;color:var(--muted);margin-top:2px" id="resultsSubtitle"></div>
+        <div style="font-style:italic;font-size:14px;color:var(--muted);margin-top:2px" id="resultsSubtitle"></div>
       </div>
       <div style="text-align:right">
         <div class="results-count" id="matchCount"></div>
@@ -887,7 +888,7 @@ function renderResults(result, url) {
       <div style="margin-bottom:2px;padding:20px 28px;background:#fff8f6;border:2px solid var(--rust);display:flex;align-items:flex-start;gap:16px">
         <div style="font-size:24px;line-height:1;flex-shrink:0">&empty;</div>
         <div>
-          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--rust);margin-bottom:6px">No Strong Reference Match Found</div>
+          <div style="font-weight:700;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--rust);margin-bottom:6px">No Strong Reference Match Found</div>
           <div style="font-size:12px;color:var(--slate);line-height:1.7">None of your existing customers scored 80 or above for this prospect. This may mean the prospect operates in an industry or at a scale not yet well represented in your reference sheet.<br><br>
           <strong style="color:var(--ink)">The 3 closest matches are shown below</strong> &mdash; use with caution and lead with the relevant aspects only.</div>
         </div>
